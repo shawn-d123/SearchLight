@@ -6,7 +6,7 @@ Read this first in the morning. Person C (Shawn).
 
 ## Do these before kick-off — 10 minutes, they unblock the rest
 
-Claude Code cannot create accounts. Nothing below was done.
+Claude Code cannot create accounts, so none of the three keys exist yet.
 
 1. **OpenTopography** — https://opentopography.org → sign up (free) → *My Account*
    → *Request API key*. It arrives immediately.
