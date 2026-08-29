@@ -31,8 +31,7 @@ Claude Code cannot create accounts. Nothing below was done.
 
 3. **OpenAI** — key into `.env` as `OPENAI_API_KEY`. Person B only.
 
-4. **Push access** — the repo is committed locally but **not pushed**; see
-   *Not done* below.
+4. ~~Push access~~ — done, four commits are on `origin/main`.
 
 ---
 
@@ -108,9 +107,9 @@ Nothing else changes.** Every argument still holds.
    correct form, verified by introspecting the installed package.
    **Cost if skipped: demo choreography is guesswork.**
 
-3. **Nothing is pushed.** Three commits sit on local `main`. The remote is
-   `https://github.com/shawn-d123/SearchLight.git`. I did not push because
-   that needs your credentials. Run `git push origin main`.
+3. ~~Nothing is pushed.~~ **Pushed.** Four commits are on
+   `origin/main` at `https://github.com/shawn-d123/SearchLight.git`.
+   The team can clone immediately.
 
 4. **Branches `fe` / `sim` / `model` were not created.** The prep doc asks for
    four branches, but `searchlight-complete_1.md` §18 is emphatic that everyone
@@ -170,12 +169,11 @@ Nothing else changes.** Every argument still holds.
 
 ## First moves at 10:30
 
-1. `git push origin main` — everyone else is blocked until it lands.
-2. OpenTopography key → `fetch_terrain.py elevation` → `arrays`. 3 minutes.
-3. Contract lock, all three, 15 minutes. `CONTRACT.md` is written; read it
+1. OpenTopography key → `fetch_terrain.py elevation` → `arrays`. 3 minutes.
+2. Contract lock, all three, 15 minutes. `CONTRACT.md` is written; read it
    aloud and freeze it by 10:45.
-4. Point Person A at `frontend/` — `npm run dev`, mocks already served from
+3. Point Person A at `frontend/` — `npm run dev`, mocks already served from
    `/public/mocks`, `DATA_SOURCE` in `lib/config.ts`.
-5. Person B: `daytona_probe.py --n 5`, then `--n 50`.
+4. Person B: `daytona_probe.py --n 5`, then `--n 50`.
 
 Regenerate anything: `python prep/make_mocks.py && python prep/validate_mocks.py`
