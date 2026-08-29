@@ -1,0 +1,31 @@
+{
+  "case_id": "Arizona80",
+  "subject_name": "SUBJECT AZ-80",
+  "subject_name_note": "Case designator, not a person's name. The source records carry no personal details and none are invented here.",
+  "subject_category": "Hiker",
+  "terrain": "Mountainous",
+  "last_contact_s_ago": 4320,
+  "last_contact_display": "72 min",
+  "ipp": [
+    32.41976668,
+    -110.7473333
+  ],
+  "ring_radius_m": 9545.9,
+  "ring_label": "ISRID RING - 95TH PCTL - 9.5 km",
+  "bounds": {
+    "north": 32.576089,
+    "south": 32.197678,
+    "east": -110.587766,
+    "west": -111.069734
+  },
+  "region": "Santa Catalina Mountains, Arizona, USA",
+  "find_location": [
+    32.36550001,
+    -110.7758333
+  ],
+  "find_location_note": "Ground truth. For validation scoring only -- never render this before the reveal.",
+  "n_hypotheses": 200,
+  "runs_per_batch": 12,
+  "runs_per_batch_note": "Live is 60 per sandbox (200 x 60 = 12,000). Mocks ship fewer to keep the file loadable; regenerate with --runs-per-batch 60 to stress test the TripsLayer.",
+  "source": "MapScore ISRID distributable subset (Arizona), https://github.com/ctwardy/mapscore -- filtered to hiker-like categories on mountainous terrain, find inside the 25 km scoring window and not identical to the IPP"
+}

@@ -369,12 +369,24 @@ def main():
 
     out = {"case.json": case_payload, "fleet_status.json": frames,
            "trajectories.json": batches, **payloads}
+
+    # Next.js serves /public, so the frontend needs its own copy. Written here
+    # rather than copied by hand so the two can never drift apart.
+    public = ROOT / "frontend" / "public" / "mocks"
+    public.mkdir(parents=True, exist_ok=True)
+
     for name, obj in out.items():
-        p = MOCKS / name
-        with open(p, "w", encoding="utf-8") as fh:
-            json.dump(obj, fh, separators=(",", ":") if "traj" in name else None,
-                      indent=None if "traj" in name else 2)
-        print("  wrote mocks/{:<22} {:>8.1f} KB".format(name, p.stat().st_size / 1024))
+        compact = "traj" in name
+        text = json.dumps(obj, separators=(",", ":")) if compact \
+            else json.dumps(obj, indent=2)
+        for d in (MOCKS, public):
+            (d / name).write_text(text, encoding="utf-8")
+        print("  wrote {:<22} {:>8.1f} KB  (mocks/ and frontend/public/mocks/)"
+              .format(name, (MOCKS / name).stat().st_size / 1024))
+
+    # bbox.json is imported directly by frontend/lib/config.ts.
+    (ROOT / "frontend" / "lib" / "bbox.json").write_text(
+        (DATA / "bbox.json").read_text(encoding="utf-8"), encoding="utf-8")
 
     print("  field_area_pct: full {}%  partial {}%  collapsed {}%".format(
         payloads["field.json"]["field_area_pct"],

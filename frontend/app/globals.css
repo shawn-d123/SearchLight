@@ -1,0 +1,7 @@
+/* Scaffold only. Visual direction is Person A's call tomorrow.
+   Warm dark, not blue dark: charcoal with an olive cast reads as chart paper
+   in low light rather than a hacker terminal. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; background: #14140f; color: #d8d2c4; }
+body { font-family: ui-monospace, "IBM Plex Mono", monospace; }
+.maplibregl-ctrl-attrib { font-size: 10px; opacity: 0.5; }

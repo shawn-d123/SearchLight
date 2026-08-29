@@ -1,0 +1,27 @@
+{
+  "north": 32.576089,
+  "south": 32.197678,
+  "east": -110.587766,
+  "west": -111.069734,
+  "width_km": 45.26,
+  "height_km": 42.08,
+  "centre": [
+    32.386883,
+    -110.82875
+  ],
+  "n_cases": 6,
+  "case_ids": [
+    "Arizona53",
+    "Arizona58",
+    "Arizona80",
+    "Arizona85",
+    "Arizona89",
+    "Arizona90"
+  ],
+  "region": "Santa Catalina Mountains, Arizona, USA",
+  "pad_km": 15.0,
+  "suggested_cell_m": 30,
+  "source": "MapScore ISRID distributable subset (Arizona), https://github.com/ctwardy/mapscore -- filtered to hiker-like categories on mountainous terrain, find inside the 25 km scoring window and not identical to the IPP",
+  "excluded_degenerate": "6 cases dataset-wide have find == IPP and are excluded from validation; see prep/STATUS.md",
+  "note_yosemite": "The spec assumed Yosemite. The free MapScore subset contains Arizona only (131 cases); Yosemite and New York were never committed to that repo."
+}
