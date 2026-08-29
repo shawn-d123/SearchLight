@@ -1,0 +1,16 @@
+numpy
+scipy
+pandas
+requests
+pillow
+shapely
+pyproj
+geopandas
+osmnx
+
+# Pure-Python GeoTIFF reader. Used instead of rasterio: on this Windows machine
+# rasterio and fiona both fail with "DLL load failed ... blocked by an
+# Application Control policy" (GDAL native binaries). tifffile reads the
+# OpenTopography 3DEP GeoTIFF fine, and geopandas writes GeoJSON via
+# gdf.to_json() rather than to_file(), which needs no GDAL either.
+tifffile
