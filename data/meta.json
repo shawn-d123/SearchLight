@@ -1,0 +1,28 @@
+{
+  "bounds": {
+    "north": 32.576089,
+    "south": 32.197678,
+    "east": -110.587766,
+    "west": -111.069734
+  },
+  "shape": [
+    1395,
+    1510
+  ],
+  "cell_m": 30,
+  "row0": "north",
+  "col0": "west",
+  "crs": "EPSG:4326",
+  "m_per_deg_lat": 110574.0,
+  "m_per_deg_lon": 94004.237,
+  "note": "Row-major. grid[0] is the north edge, grid[r][0] the west edge. Cells are square in metres by construction, so the grid is slightly anisotropic in degrees.",
+  "arrays": [
+    "trail_dist.npy",
+    "water_dist.npy"
+  ],
+  "source": {
+    "elevation": "USGS 3DEP 1/3 arc-second via OpenTopography (USGS10m)",
+    "trails_water": "OpenStreetMap via OSMnx, network_type='all'",
+    "bbox": "data/bbox.json"
+  }
+}

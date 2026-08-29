@@ -1,0 +1,85 @@
+{
+  "published_ring": {
+    "mean": 0.78,
+    "ci": [
+      0.74,
+      0.82
+    ],
+    "n": 376,
+    "source": "Sava, Twardy, Koester & Sonwalkar, Evaluating Lost Person Behavior Models, Transactions in GIS"
+  },
+  "published_best_combined": 0.805,
+  "scoring_grid": {
+    "resolution": 5001,
+    "cell_m": 5.0,
+    "window_km": 25.005
+  },
+  "runs": {
+    "derived (holdout)": {
+      "quantiles_km": {
+        "p25": 1.6286,
+        "p50": 2.8199,
+        "p75": 6.2551,
+        "p95": 9.6054
+      },
+      "area_pct_at_50": 3.995,
+      "all_usable": {
+        "n": 109,
+        "mean_R": 0.711,
+        "ci95": [
+          0.6433,
+          0.7788
+        ]
+      },
+      "validation": {
+        "n": 6,
+        "mean_R": 0.7606,
+        "ci95": [
+          0.52,
+          1.0
+        ],
+        "per_case": [
+          0.9467,
+          0.9867,
+          0.3398,
+          0.7635,
+          0.7635,
+          0.7635
+        ]
+      }
+    },
+    "Koester published": {
+      "quantiles_km": {
+        "p25": 1.6,
+        "p50": 3.1,
+        "p75": 6.1,
+        "p95": 19.3
+      },
+      "area_pct_at_50": 4.474,
+      "all_usable": {
+        "n": 109,
+        "mean_R": 0.6154,
+        "ci95": [
+          0.5221,
+          0.7088
+        ]
+      },
+      "validation": {
+        "n": 6,
+        "mean_R": 0.6722,
+        "ci95": [
+          0.2186,
+          1.0
+        ],
+        "per_case": [
+          0.9389,
+          0.9871,
+          -0.187,
+          0.7648,
+          0.7648,
+          0.7648
+        ]
+      }
+    }
+  }
+}
