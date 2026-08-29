@@ -6,19 +6,12 @@ Read this first in the morning. Person C (Shawn).
 
 ## Do these before kick-off — 10 minutes, they unblock the rest
 
-Claude Code cannot create accounts, so none of the three keys exist yet.
+Claude Code cannot create accounts. The OpenTopography key has since been
+supplied and used; the other two are still needed.
 
-1. **OpenTopography** — https://opentopography.org → sign up (free) → *My Account*
-   → *Request API key*. It arrives immediately.
-   Then: `cp .env.example .env`, paste it as `OPENTOPO_API_KEY`, and run
-
-   ```
-   python prep/fetch_terrain.py elevation
-   python prep/fetch_terrain.py arrays
-   ```
-
-   That fills in the last two of four worker arrays. **~3 minutes. Do it first
-   — Person B cannot bake the snapshot without them.**
+1. ~~OpenTopography~~ — **DONE.** Key supplied, `.env` written (gitignored),
+   USGS 3DEP pulled, all four worker arrays built. **33.7 MB, under the 50 MB
+   snapshot budget.** Person B can bake the snapshot immediately.
 
 2. **Daytona** — https://www.daytona.io → API key into `.env` as
    `DAYTONA_API_KEY`. **Write down the concurrent sandbox limit on the
@@ -63,7 +56,7 @@ Nothing else changes.** Every argument still holds.
 | 0 — repo scaffold, `.gitignore`, `.env.example`, `CONTRACT.md` | done |
 | 1 — cases extracted, bounding box chosen | done |
 | 2 — priors derived | done |
-| 3 — trails + water | done. **elevation + slope blocked on the key** |
+| 3 — terrain, trails, water, all four arrays | done, orientation verified |
 | 4 — mocks | done, and validated against the contract |
 | 5 — scoring harness + ring baseline | done, **and it reproduces** |
 | 6 — `model/field.py` shapes | done |
@@ -90,33 +83,36 @@ Nothing else changes.** Every argument still holds.
   has a shorter tail than the full international database.
 - **Ring radius is 9.55 km** (the p95), not the spec's illustrative 5.8 km.
   The on-screen label already says `ISRID RING · 95TH PCTL · 9.5 km`.
+- **Terrain is real and verified.** Elevation 639–2793 m over the box, 2,154 m
+  of relief. The DEM's highest cell sits 80 m from Mount Lemmon's published
+  summit and reads 2793 m against a published 2791 m — so the array is north-up
+  and correctly georeferenced, which is the terrain equivalent of the ring
+  reproduction check. Mean slope 12.2°, max 75.7°.
+- **The demo IPP is a good one.** Arizona80 sits at 2,439 m on a 29° slope,
+  42 m from a trail and 450 m from water — a hiker high on a steep trailed
+  mountainside. Terrain will genuinely shape that field rather than decorate it.
 
 ---
 
 ## What is NOT done, and what it costs
 
-1. **`data/elevation.npy` and `data/slope.npy`** — need `OPENTOPO_API_KEY`.
-   Two of the four worker arrays exist (`trail_dist`, `water_dist`, 16.9 MB).
-   **Cost if skipped: workers have no terrain, which is the entire thesis.**
-   3 minutes once you have the key.
-
-2. **The Daytona probe was never run.** No key. The script is written but
+1. **The Daytona probe was never run.** No key. The script is written but
    **unverified against a live API** — expect to fix a call signature or two
    on first run. Note the prep doc's `Image.debianSlim().pipInstall()` is the
    *TypeScript* spelling; the Python SDK is snake_case and the script uses the
    correct form, verified by introspecting the installed package.
    **Cost if skipped: demo choreography is guesswork.**
 
-3. ~~Nothing is pushed.~~ **Pushed.** Four commits are on
+2. ~~Nothing is pushed.~~ **Pushed.** Four commits are on
    `origin/main` at `https://github.com/shawn-d123/SearchLight.git`.
    The team can clone immediately.
 
-4. **Branches `fe` / `sim` / `model` were not created.** The prep doc asks for
+3. **Branches `fe` / `sim` / `model` were not created.** The prep doc asks for
    four branches, but `searchlight-complete_1.md` §18 is emphatic that everyone
    works on `main` with no feature branches. I followed the spec.
    **If you want them: `git branch fe && git branch sim && git branch model`.**
 
-5. **`model/build_field` and `apply_evidence` are signatures only** — as the
+4. **`model/build_field` and `apply_evidence` are signatures only** — as the
    prep rules require. Their internals are Sunday's 10:45 and 13:30 slots.
 
 ---
@@ -169,11 +165,10 @@ Nothing else changes.** Every argument still holds.
 
 ## First moves at 10:30
 
-1. OpenTopography key → `fetch_terrain.py elevation` → `arrays`. 3 minutes.
-2. Contract lock, all three, 15 minutes. `CONTRACT.md` is written; read it
+1. Contract lock, all three, 15 minutes. `CONTRACT.md` is written; read it
    aloud and freeze it by 10:45.
-3. Point Person A at `frontend/` — `npm run dev`, mocks already served from
+2. Point Person A at `frontend/` — `npm run dev`, mocks already served from
    `/public/mocks`, `DATA_SOURCE` in `lib/config.ts`.
-4. Person B: `daytona_probe.py --n 5`, then `--n 50`.
+3. Person B: `daytona_probe.py --n 5`, then `--n 50`.
 
 Regenerate anything: `python prep/make_mocks.py && python prep/validate_mocks.py`

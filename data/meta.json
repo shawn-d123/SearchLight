@@ -17,6 +17,8 @@
   "m_per_deg_lon": 94004.237,
   "note": "Row-major. grid[0] is the north edge, grid[r][0] the west edge. Cells are square in metres by construction, so the grid is slightly anisotropic in degrees.",
   "arrays": [
+    "elevation.npy",
+    "slope.npy",
     "trail_dist.npy",
     "water_dist.npy"
   ],
