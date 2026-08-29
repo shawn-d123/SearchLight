@@ -1,0 +1,37 @@
+{
+  "source": "derived from MapScore ISRID distributable subset (Arizona), hiker-like categories with valid coordinates and find != IPP; https://github.com/ctwardy/mapscore",
+  "n_all": 75,
+  "n_holdout": 69,
+  "distance_km": {
+    "p25": 1.6307,
+    "p50": 2.8564,
+    "p75": 6.2551,
+    "p95": 9.5459
+  },
+  "distance_km_holdout": {
+    "p25": 1.6286,
+    "p50": 2.8199,
+    "p75": 6.2551,
+    "p95": 9.6054
+  },
+  "ring_radius_km": 9.5459,
+  "ring_radius_km_holdout": 9.6054,
+  "ring_quantile": 95,
+  "ring_label": "ISRID RING - 95TH PCTL - 9.5 km",
+  "holdout_note": "distance_km_holdout excludes the 6 validation cases in data/bbox.json so the ring baseline is scored against data it has not seen. Use it in verify_baseline.py.",
+  "koester_crosscheck_km": {
+    "p25": 1.6,
+    "p50": 3.1,
+    "p75": 6.1,
+    "p95": 19.3
+  },
+  "koester_crosscheck_source": "Koester, Lost Person Behavior (2008), temperate Hiker. Cross-check only, not used in any computation.",
+  "families": {
+    "route_travelling": 0.41,
+    "direction_sampling": 0.29,
+    "backtracking": 0.17,
+    "view_enhancing": 0.08,
+    "staying_put": 0.05
+  },
+  "families_source": "PLACEHOLDER - ISRID strategy frequencies, NOT yet sourced. These five weights are invented and must either be cited to Koester's published strategy frequencies or described as an assumption on stage. Do not present them as derived."
+}

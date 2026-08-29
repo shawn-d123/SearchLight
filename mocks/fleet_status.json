@@ -1,0 +1,202 @@
+[
+  {
+    "elapsed_s": 0.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 13,
+    "sandboxes_active": 13,
+    "hypotheses_completed": 0,
+    "runs_completed": 0,
+    "runs_failed": 0,
+    "progress": 0.05
+  },
+  {
+    "elapsed_s": 0.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 27,
+    "sandboxes_active": 27,
+    "hypotheses_completed": 0,
+    "runs_completed": 0,
+    "runs_failed": 0,
+    "progress": 0.1
+  },
+  {
+    "elapsed_s": 1.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 40,
+    "sandboxes_active": 36,
+    "hypotheses_completed": 4,
+    "runs_completed": 48,
+    "runs_failed": 2,
+    "progress": 0.15
+  },
+  {
+    "elapsed_s": 1.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 54,
+    "sandboxes_active": 39,
+    "hypotheses_completed": 15,
+    "runs_completed": 180,
+    "runs_failed": 9,
+    "progress": 0.2
+  },
+  {
+    "elapsed_s": 2.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 67,
+    "sandboxes_active": 40,
+    "hypotheses_completed": 27,
+    "runs_completed": 324,
+    "runs_failed": 16,
+    "progress": 0.25
+  },
+  {
+    "elapsed_s": 2.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 81,
+    "sandboxes_active": 43,
+    "hypotheses_completed": 38,
+    "runs_completed": 456,
+    "runs_failed": 22,
+    "progress": 0.3
+  },
+  {
+    "elapsed_s": 3.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 94,
+    "sandboxes_active": 44,
+    "hypotheses_completed": 50,
+    "runs_completed": 600,
+    "runs_failed": 30,
+    "progress": 0.35
+  },
+  {
+    "elapsed_s": 3.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 108,
+    "sandboxes_active": 47,
+    "hypotheses_completed": 61,
+    "runs_completed": 732,
+    "runs_failed": 36,
+    "progress": 0.4
+  },
+  {
+    "elapsed_s": 4.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 121,
+    "sandboxes_active": 48,
+    "hypotheses_completed": 73,
+    "runs_completed": 876,
+    "runs_failed": 43,
+    "progress": 0.45
+  },
+  {
+    "elapsed_s": 4.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 135,
+    "sandboxes_active": 51,
+    "hypotheses_completed": 84,
+    "runs_completed": 1008,
+    "runs_failed": 50,
+    "progress": 0.5
+  },
+  {
+    "elapsed_s": 5.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 148,
+    "sandboxes_active": 52,
+    "hypotheses_completed": 96,
+    "runs_completed": 1152,
+    "runs_failed": 57,
+    "progress": 0.55
+  },
+  {
+    "elapsed_s": 5.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 162,
+    "sandboxes_active": 55,
+    "hypotheses_completed": 107,
+    "runs_completed": 1284,
+    "runs_failed": 64,
+    "progress": 0.6
+  },
+  {
+    "elapsed_s": 6.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 175,
+    "sandboxes_active": 56,
+    "hypotheses_completed": 119,
+    "runs_completed": 1428,
+    "runs_failed": 71,
+    "progress": 0.65
+  },
+  {
+    "elapsed_s": 6.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 189,
+    "sandboxes_active": 59,
+    "hypotheses_completed": 130,
+    "runs_completed": 1560,
+    "runs_failed": 78,
+    "progress": 0.7
+  },
+  {
+    "elapsed_s": 7.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 58,
+    "hypotheses_completed": 142,
+    "runs_completed": 1704,
+    "runs_failed": 85,
+    "progress": 0.75
+  },
+  {
+    "elapsed_s": 7.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 47,
+    "hypotheses_completed": 153,
+    "runs_completed": 1836,
+    "runs_failed": 91,
+    "progress": 0.8
+  },
+  {
+    "elapsed_s": 8.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 35,
+    "hypotheses_completed": 165,
+    "runs_completed": 1980,
+    "runs_failed": 99,
+    "progress": 0.85
+  },
+  {
+    "elapsed_s": 8.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 24,
+    "hypotheses_completed": 176,
+    "runs_completed": 2112,
+    "runs_failed": 105,
+    "progress": 0.9
+  },
+  {
+    "elapsed_s": 9.0,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 12,
+    "hypotheses_completed": 188,
+    "runs_completed": 2256,
+    "runs_failed": 112,
+    "progress": 0.95
+  },
+  {
+    "elapsed_s": 9.5,
+    "sandboxes_requested": 200,
+    "sandboxes_ready": 200,
+    "sandboxes_active": 1,
+    "hypotheses_completed": 199,
+    "runs_completed": 2388,
+    "runs_failed": 119,
+    "progress": 1.0
+  }
+]
