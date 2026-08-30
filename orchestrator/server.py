@@ -131,6 +131,10 @@ class Hub:
         asyncio.run_coroutine_threadsafe(self._send(msg), self.loop)
 
 
+# Seconds between report-card fields. Fast enough not to stall the pitch,
+# slow enough that the stagger reads as extraction rather than a stutter.
+FIELD_STAGGER_S = 0.35
+
 hub = Hub()
 pipeline = None
 CONFIG = {"total_runs": 12000, "n_hypotheses": 20, "use_fleet": True}
@@ -213,8 +217,51 @@ async def handle(msg):
             threading.Thread(target=pipeline._emit_evidence, args=(payload,),
                              daemon=True).start()
 
+    elif t == "transcript_partial":
+        # Interim words are relayed so every client sees the same call as it is
+        # spoken. Only the FINAL transcript is worth an extraction call.
+        hub.emit_threadsafe("transcript_partial",
+                            {"text": payload.get("text", ""),
+                             "is_final": bool(payload.get("is_final"))})
+        if payload.get("is_final"):
+            threading.Thread(target=_run_extraction,
+                             args=(payload.get("text", ""),),
+                             daemon=True).start()
+
     elif t == "ping":
         hub.emit_threadsafe("pong", {"t": time.time()})
+
+
+def _run_extraction(transcript):
+    """Transcript -> report card, one field at a time.
+
+    The stagger is deliberate and is the visual payoff of the transcription:
+    fields landing one after another read as a call being taken, where a card
+    appearing whole reads as a canned screen. FIELD_STAGGER_S is the only knob.
+    """
+    import extract as extractor
+
+    hub.state = "intake"
+    payload, err = extractor.extract(transcript)
+    if err:
+        # Never fatal: extract() returns the committed mock, tagged
+        # source="fallback" so nothing can mistake it for a live extraction.
+        hub.emit_threadsafe("log", {"step": "extraction", "error": err})
+
+    for field in extractor.field_sequence(payload):
+        hub.emit_threadsafe("extraction_update", field)
+        time.sleep(FIELD_STAGGER_S)
+
+    # case_loaded is the full section 8 payload and is what BEGIN SEARCH acts
+    # on. The pipeline needs ipp and ring_radius_m at the top level.
+    case = dict(payload)
+    case["ipp"] = payload["last_known"]["ipp"]
+    case["ring_radius_m"] = payload["assessment"]["ring_radius_m"]
+    case["last_contact_s_ago"] = int(
+        payload["last_known"].get("elapsed_min") or 72) * 60
+    case["bounds"] = settings_load_case().get("bounds")
+    hub.emit_threadsafe("extraction_complete", {"source": payload.get("source")})
+    hub.emit_threadsafe("case_loaded", case)
 
 
 def _run_pipeline(payload):
