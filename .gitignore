@@ -36,3 +36,8 @@ node_modules/
 out/
 next-env.d.ts
 .DS_Store
+
+# Staging dir for Daytona snapshot builds (see prep/TIMINGS.md).
+# Regenerate: cp data/*.npy data/meta.json _snapdata/
+_snapdata/
+prep/TIMINGS.json
