@@ -1,4 +1,4 @@
-﻿"""FastAPI + WebSocket server. `ws://localhost:8000/ws`, per CONTRACT.md section 9.
+"""FastAPI + WebSocket server. `ws://localhost:8000/ws`, per CONTRACT.md section 9.
 
 Every message is `{"type": ..., "seq": n, "payload": {...}}`.
 
@@ -10,6 +10,7 @@ event loop through a queue. Person A drives it with `state_change` and `run`.
 """
 from __future__ import annotations
 
+import collections
 import argparse, asyncio, json, threading, time
 from contextlib import asynccontextmanager
 

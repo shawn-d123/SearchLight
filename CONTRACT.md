@@ -319,6 +319,39 @@ Nothing in that script is decoration. If a detail does not drive something visib
 
 **Batch the trajectories.** Twelve thousand individual messages will kill the browser.
 
+### Frontend to server (commands)
+
+**This is how the frontend drives the demo.** Without it Person A cannot start
+a run at all. Same envelope as everything else: `{"type": "run", "payload": {}}`.
+
+| send | payload | effect |
+|---|---|---|
+| `run` | `{total_runs, n_hypotheses}`, both optional | starts a simulation |
+| `evidence` | `{lat, lon, t, radius_m, reliability}` | applies the witness filter |
+| `state_change` | `{state}` | moves the demo to a state |
+| `ping` | `{}` | replies with `pong` |
+
+Omitting the `run` payload uses the server defaults.
+
+### Additional server to frontend messages
+
+Emitted by the orchestrator and **safe to ignore**, documented so they are not
+a surprise in the console:
+
+| type | payload | when |
+|---|---|---|
+| `fleet_ready` | `{n_sandboxes, n_failed}` | fleet acquired at startup |
+| `hypotheses_ready` | `{n, hypotheses: [...]}` | model work done, before `run` |
+| `log` | `{step, s, error?}` | progress and non-fatal errors |
+| `pong` | `{t}` | reply to `ping` |
+
+### seq
+
+`seq` is stamped immediately before the send by a single writer, so **wire
+order and seq order always agree**. A client may rely on it for ordering and
+de-duplication. On connect the server replays a short history of state-setting
+messages with their original seq, then continues.
+
 States, in order: `landing`, `intake`, `briefing`, `simulating`, `field_ready`, `evidence`, `validation`.
 
 ---

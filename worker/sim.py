@@ -256,7 +256,15 @@ def run_batch(job, data_dir, budget_s):
     }
 
     try:
-        simulate, state = compile_script(job["script"], terrain, deadline)
+        # A missing or empty script means the family template, not a batch of
+        # 60 failures. The orchestrator normally sends template source when it
+        # is not generating, so this is a guard rather than the usual path --
+        # but compile(None) would fail every run in the batch.
+        src = job.get("script")
+        if not src:
+            import templates as _t
+            src = _t.template_for(hyp["family"])
+        simulate, state = compile_script(src, terrain, deadline)
     except Exception as e:
         # The whole script is bad. Every run fails; the orchestrator retries
         # with the family template. Counted, not plotted.

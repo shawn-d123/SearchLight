@@ -1,4 +1,4 @@
-﻿"""The run itself: hypotheses -> generated scripts -> fleet -> batches -> field.
+"""The run itself: hypotheses -> generated scripts -> fleet -> batches -> field.
 
 Headless and synchronous on purpose. `server.py` wraps it for the WebSocket;
 this module can be driven from a terminal with no browser, which is how you
@@ -38,6 +38,12 @@ class Pipeline:
         self._prepared = None
         self._warned = set()    # per instance, not per class -- see _warn_once
         self._lock = threading.Lock()
+        # _emit_field is called from on_batch, which fleet.run_all invokes from
+        # PARALLEL worker threads. Two concurrent calls both read self._folded
+        # before either advances it, so the same batches get folded twice --
+        # measured n_total 800 for a 600-run job, with those endpoints also
+        # double-weighted in the field. One folder at a time.
+        self._field_lock = threading.Lock()
         self._stats = {"active": 0, "complete": 0, "failed": 0, "families": {}}
 
     # -- setup -------------------------------------------------------------
@@ -51,7 +57,11 @@ class Pipeline:
         return self.sandboxes, errors
 
     def release_fleet(self):
-        self.fleet.release(self.sandboxes)
+        # Release EVERYTHING the fleet created, not just the list this pipeline
+        # happens to hold. A sandbox that failed during setup is tracked by the
+        # fleet but never reached self.sandboxes, and releasing only the local
+        # list left it alive and billing.
+        self.fleet.release()
         self.sandboxes = []
 
     # -- the run -----------------------------------------------------------
@@ -91,6 +101,14 @@ class Pipeline:
         if prepared:
             hyps, scripts, err = prepared[0], prepared[1], None
             self._prepared = None
+            # Honour the caller's run size. prepare() runs at STARTUP with the
+            # server defaults, so without this a run command asking for 600
+            # sims silently delivered 12,000 -- the frontend could not size a
+            # run at all. Re-expanding is arithmetic on the existing
+            # hypotheses: no model call, and hypothesis_id is assigned by
+            # index so the prepared scripts still map.
+            if total_runs and sum(h["n_runs"] for h in hyps) != total_runs:
+                hyps = hypmod.expand(hyps, case, total_runs=total_runs)
         else:
             hyps, err = self._hypotheses(case, n_hypotheses)
             hyps = hypmod.expand(hyps, case, total_runs=total_runs)
@@ -141,7 +159,8 @@ class Pipeline:
             if due or done == total:
                 last_field[0] = time.monotonic()
                 accumulator_ref[0] = self._emit_field(
-                    accumulator_ref[0], done / max(1, total))
+                    accumulator_ref[0], done / max(1, total),
+                    blocking=(done == total))
 
         work = [(h, scripts.get(h["hypothesis_id"])) for h in hyps]
         t0 = time.perf_counter()
@@ -212,9 +231,22 @@ class Pipeline:
         if out:
             self.emit("trajectory_batch", {"batches": out})
 
-    def _emit_field(self, accumulator, progress):
+    def _emit_field(self, accumulator, progress, blocking=False):
         """Person C owns build_field. Until it exists this is a no-op that says
-        so once, rather than a crash that takes the run with it."""
+        so once, rather than a crash that takes the run with it.
+
+        Serialised: a concurrent caller skips rather than queues, because the
+        next tick folds whatever it missed. The FINAL emit passes blocking=True
+        so the last batches are never dropped.
+        """
+        if not self._field_lock.acquire(blocking=blocking):
+            return accumulator
+        try:
+            return self._emit_field_locked(accumulator, progress)
+        finally:
+            self._field_lock.release()
+
+    def _emit_field_locked(self, accumulator, progress):
         try:
             from model.field import build_field, field_payload
         except Exception as e:

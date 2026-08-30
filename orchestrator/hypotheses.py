@@ -1,4 +1,4 @@
-﻿"""One model call before the fan-out proposes hypotheses for THIS incident.
+"""One model call before the fan-out proposes hypotheses for THIS incident.
 
 Without this the hypothesis list is the five family names from
 `data/priors.json` -- generic categories that apply to any lost hiker anywhere,
@@ -15,6 +15,10 @@ basis of the project.
     python orchestrator/hypotheses.py --n 12
 """
 from __future__ import annotations
+
+import math
+
+import numpy as np
 
 import argparse, json, os, sys, time
 
@@ -187,7 +191,34 @@ def fallback_hypotheses(case, n, families=None):
     return out
 
 
-def expand(hyps, case, total_runs=12000, dt_seed=1000):
+# Search horizon as a multiple of elapsed time. A subject missing 72 minutes
+# is not found 72 minutes from the IPP -- the published quantiles describe the
+# EVENTUAL find distance, and the search must cover where they could be by the
+# time teams arrive. Calibrated so the simulated median matches the published
+# p50; see prep/check_calibration.py.
+DURATION_SCALE = 3.2
+MIN_DURATION_S = 900.0
+MAX_DURATION_S = 12 * 3600.0
+
+
+def _load_priors():
+    try:
+        return json.loads((DATA / "priors.json").read_text())
+    except Exception:
+        return None
+
+
+def _duration_sigma(priors):
+    """Lognormal sigma implied by the published p95/p50 distance ratio.
+
+    For a lognormal, p95/p50 = exp(1.645 * sigma).
+    """
+    q = priors["distance_km"]
+    return math.log(max(1.05, q["p95"] / max(q["p50"], 1e-6))) / 1.645
+
+
+def expand(hyps, case, total_runs=12000, dt_seed=1000, priors=None,
+           duration_scale=DURATION_SCALE):
     """Attach the per-sandbox run counts and the CONTRACT.md section 4 fields.
 
     `n_runs` is derived so the totals hold whatever the fleet size turns out to
@@ -195,12 +226,35 @@ def expand(hyps, case, total_runs=12000, dt_seed=1000):
     the run count per hypothesis is what keeps 12,000 sims 12,000 sims.
     """
     per = max(1, round(total_runs / max(1, len(hyps))))
+
+    # DURATIONS ARE SAMPLED, NOT FIXED. Every hypothesis previously walked for
+    # exactly case["last_contact_s_ago"], so every walker covered the same
+    # ground, every endpoint landed on the same radius, and the field collapsed
+    # into a single blob -- measured field_area_pct 1.8% with one zone holding
+    # 96% of the mass. That is not a tighter search area, it is a lost degree
+    # of freedom.
+    #
+    # Spread comes from the published quantiles: sigma is derived from the
+    # p95/p50 ratio in data/priors.json, so the simulated distance distribution
+    # reproduces the evidence base rather than contradicting it. This is what
+    # makes "the same published statistics" a statement of fact.
+    priors = priors if priors is not None else _load_priors()
+    elapsed = float(case.get("last_contact_s_ago", 4320))
+    rng = np.random.default_rng(dt_seed)
+    if priors:
+        sigma = _duration_sigma(priors)
+        base = elapsed * duration_scale
+        durations = np.clip(base * rng.lognormal(0.0, sigma, len(hyps)),
+                            MIN_DURATION_S, MAX_DURATION_S)
+    else:
+        durations = np.full(len(hyps), elapsed)
+
     out = []
     for i, h in enumerate(hyps):
         out.append(dict(h,
                         hypothesis_id="h_{:05d}".format(i),
                         start=case["ipp"],
-                        duration_s=case.get("last_contact_s_ago", 4320),
+                        duration_s=int(durations[i]),
                         n_runs=per,
                         seed_base=dt_seed * (i + 1)))
     return out

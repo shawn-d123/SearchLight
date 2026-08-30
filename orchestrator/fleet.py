@@ -1,4 +1,4 @@
-﻿"""Daytona fleet control. Claims sandboxes, dispatches one hypothesis each,
+"""Daytona fleet control. Claims sandboxes, dispatches one hypothesis each,
 collects trajectory batches.
 
 The architecture only earns its sandboxes because a MODEL WRITES THE MOVEMENT
@@ -63,6 +63,9 @@ class Fleet:
         self.snapshot = snapshot
         self.sim_src = (WORKER / "sim.py").read_bytes()
         self.sandboxes = []
+        # reap() calls _delete_one directly without going through release(),
+        # so this must exist from construction or that path raises.
+        self.delete_failures = []
         self._lock = threading.Lock()
         self.on_event = on_event or (lambda *a, **k: None)
 
@@ -103,9 +106,28 @@ class Fleet:
         # Prime once per sandbox: the runtime is the same for every hypothesis,
         # only job.json changes. Doing this at dispatch would pay the upload
         # again on every retry.
-        sb.fs.upload_file(self.sim_src, SB_SIM)
+        # TRACK BEFORE ANYTHING ELSE CAN FAIL. Previously the sandbox was
+        # appended only after the upload, so an upload error -- a dropped
+        # connection is enough, and one happened in testing -- left a live,
+        # billing sandbox that release() knew nothing about. acquire() then
+        # reported it as "failed" while it kept running. The reaper found two
+        # after a run printed "released fleet".
         with self._lock:
             self.sandboxes.append(sb)
+
+        try:
+            # Prime once per sandbox: the runtime is the same for every
+            # hypothesis, only job.json changes. Doing this at dispatch would
+            # pay the upload again on every retry.
+            sb.fs.upload_file(self.sim_src, SB_SIM)
+        except Exception:
+            self._delete_one(sb)
+            with self._lock:
+                try:
+                    self.sandboxes.remove(sb)
+                except ValueError:
+                    pass
+            raise
         return sb
 
     def acquire(self, n, max_workers=None):
@@ -129,17 +151,36 @@ class Fleet:
         return ready, errors
 
     def release(self, sandboxes=None):
+        """Delete the fleet and SAY SO HONESTLY if any survived."""
         sbs = sandboxes if sandboxes is not None else list(self.sandboxes)
         if not sbs:
-            return
+            return 0, 0
+        self.delete_failures = []
         with ThreadPoolExecutor(max_workers=min(len(sbs), 64)) as pool:
-            list(pool.map(self._delete_one, sbs))
+            results = list(pool.map(self._delete_one, sbs))
+        ok = sum(1 for r in results if r)
+        if sandboxes is None:
+            with self._lock:
+                self.sandboxes = []
+        if ok != len(sbs):
+            print("  WARNING: released {} of {} sandboxes; {} may still be "
+                  "billing. Run: python orchestrator/fleet.py --reap"
+                  .format(ok, len(sbs), len(sbs) - ok))
+        return ok, len(sbs)
 
     def _delete_one(self, sb):
+        """Delete one sandbox. Returns True on success.
+
+        Failures are counted rather than swallowed: a delete that silently
+        fails is indistinguishable from success, and the difference is a
+        machine that bills until someone notices.
+        """
         try:
             self.daytona.delete(sb)
-        except Exception:
-            pass
+            return True
+        except Exception as e:
+            self.delete_failures.append("{}: {}".format(type(e).__name__, e))
+            return False
 
     def reap(self, label="worker"):
         """Delete every sandbox this project left behind.
