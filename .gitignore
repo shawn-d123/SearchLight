@@ -41,3 +41,6 @@ next-env.d.ts
 # Regenerate: cp data/*.npy data/meta.json _snapdata/
 _snapdata/
 prep/TIMINGS.json
+
+# prep/tune_evidence.py's captured run (12 MB). Regenerate, do not commit.
+prep/_batches.json

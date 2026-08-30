@@ -1,317 +1,211 @@
 "use client";
 
-// Scaffold only. Person A owns the visual direction -- this exists so nobody
-// loses an hour tomorrow to the deck.gl / MapLibre camera integration, which
-// is the part that reliably eats time if you have not done it before.
-//
-// What it proves works:
-//   - MapLibre dark basemap over the real bounding box
-//   - Terrarium terrain-RGB heightfield, exaggeration as one constant
-//   - rotation disabled, pitch flat, ready to be raised
-//   - TripsLayer animating the mock trajectories
-//   - the field decoded from base64 and DRAPED via a MapLibre image source
-//
-// Deliberately unstyled beyond a dark ground.
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Map as MapLibreMap } from "maplibre-gl";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Map, { useControl, type MapRef } from "react-map-gl/maplibre";
-import { MapboxOverlay } from "@deck.gl/mapbox";
-import { TripsLayer } from "@deck.gl/geo-layers";
-import { ScatterplotLayer } from "@deck.gl/layers";
-import "maplibre-gl/dist/maplibre-gl.css";
-
+import MapCanvas, { type MapHandles } from "@/components/MapCanvas";
+import Rail from "@/components/Rail";
+import Landing from "@/components/Landing";
+import Intake from "@/components/Intake";
+import HelpOverlay from "@/components/HelpOverlay";
+import FpsMeter from "@/components/FpsMeter";
 import {
-  BASEMAP_STYLE,
-  BOUNDS,
-  DATA_SOURCE,
-  EXAGGERATION,
-  INITIAL_VIEW,
-  MOCKS,
-  TERRAIN_ENCODING,
-  TERRAIN_MAXZOOM,
-  TERRAIN_SOURCE,
-  TERRAIN_TILES,
-} from "@/lib/config";
-import {
-  batchesToTrips,
-  boundsToCoordinates,
-  decodeGrid,
-  gridToCanvas,
-  type Batch,
-  type FieldPayload,
-  type Trip,
-} from "@/lib/field";
+  NorthArrow,
+  RingLegend,
+  ScaleBar,
+  ZoneLabels,
+} from "@/components/MapOverlays";
 
-const FIELD_SOURCE = "field-source";
-const FIELD_LAYER = "field-layer";
-const RING_SOURCE = "ring-source";
+import { useSearchlight } from "@/lib/useSearchlight";
+import { keyToAction, showsMap, STATE_LABEL } from "@/lib/state";
+import { DATA_SOURCE, STATE_TRANSITION_MS, TERRAIN_EXAGGERATION } from "@/lib/config";
 
-function DeckOverlay(props: { layers: unknown[] }) {
-  const overlay = useControl(() => new MapboxOverlay({ interleaved: false }));
-  // @ts-expect-error deck.gl types accept a heterogeneous layer array
-  overlay.setProps(props);
-  return null;
-}
+/**
+ * One screen with states. Not seven screens.
+ *
+ * Roughly 70% map and 30% rail, and the layout never changes — only the state
+ * does. landing and intake take the full width because they have no map, but
+ * they use the same panel language, type and palette, so the transition reads
+ * as the same application changing mode rather than a different app loading.
+ */
 
-/** Circle as a GeoJSON polygon. The ring is naive by design -- it is the thing
- *  being argued against -- but it must be labelled with its quantile. An
- *  unlabelled circle invites "where did that number come from?" */
-function ringPolygon(centre: [number, number], radiusM: number, steps = 128) {
-  const [lat, lon] = centre;
-  const dLat = radiusM / 110574;
-  const dLon = radiusM / (111320 * Math.cos((lat * Math.PI) / 180));
-  const ring: Array<[number, number]> = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * 2 * Math.PI;
-    ring.push([lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)]);
-  }
-  return {
-    type: "Feature" as const,
-    properties: {},
-    geometry: { type: "Polygon" as const, coordinates: [ring] },
-  };
-}
+/**
+ * The rail floats over the map rather than butting against the window edges.
+ *
+ * NOTE this overrides the brief's "cut on sight" list, which rules out a border
+ * radius above ~4px combined with a drop shadow. Overridden deliberately, not
+ * missed. It is kept honest by being a SOLID card, not a frosted one — the map
+ * does not show through it, so the numbers stay readable over any terrain, and
+ * the shadow carries a real offset rather than being a glow.
+ */
+const RAIL_WIDTH = 430;
+const RAIL_INSET = 22;
+/** What the camera has to keep clear on the right: card + both margins. */
+const RAIL_OCCLUDES = RAIL_WIDTH + RAIL_INSET * 2;
 
-export default function Home() {
-  const mapRef = useRef<MapRef | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [maxTime, setMaxTime] = useState(1);
-  const [time, setTime] = useState(0);
-  const [field, setField] = useState<FieldPayload | null>(null);
-  const [caseInfo, setCaseInfo] = useState<{
-    subject_name: string;
-    incident: string;
-    ipp: [number, number];
-    ring_radius_m: number;
-    ring_label: string;
-    region: string;
-  } | null>(null);
-  const [status, setStatus] = useState("loading mocks...");
+export default function Page() {
+  const sl = useSearchlight();
+  const [map, setMap] = useState<MapLibreMap | null>(null);
+  const [help, setHelp] = useState(false);
+  const handles = useRef<MapHandles | null>(null);
 
-  // --- data ---------------------------------------------------------------
+  const { advance, back, go, replayTranscript } = sl;
+
+  // --- the keyboard is the real interface during the 90 seconds ------------
   useEffect(() => {
-    if (DATA_SOURCE !== "mock") {
-      setStatus("DATA_SOURCE is 'live' -- connect the orchestrator WS");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const [c, t, f] = await Promise.all([
-          fetch(MOCKS.case).then((r) => r.json()),
-          fetch(MOCKS.trajectories).then((r) => r.json()),
-          fetch(MOCKS.field).then((r) => r.json()),
-        ]);
-        if (cancelled) return;
-        // case.json is the CONTRACT.md s8 extraction payload (it IS the
-        // case_loaded message). Flattened here so the render path stays simple
-        // and the contract shape stays authoritative.
-        setCaseInfo({
-          subject_name: c.subject?.name ?? "SUBJECT",
-          incident: c.incident ?? "",
-          ipp: c.last_known?.ipp ?? c.ipp,
-          ring_radius_m: c.ring_radius_m,
-          ring_label: c.ring_label,
-          region: c.region,
-        });
-        const { trips, nTotal, nFailed, maxTime } = batchesToTrips(t as Batch[]);
-        setTrips(trips);
-        setMaxTime(maxTime || 1);
-        setField(f as FieldPayload);
-        setStatus(
-          `${trips.length} paths - ${nFailed}/${nTotal} failed - field ${(
-            f as FieldPayload
-          ).field_area_pct}% of ring`,
-        );
-      } catch (e) {
-        setStatus(`mock load failed: ${(e as Error).message}`);
+    const onKey = (e: KeyboardEvent) => {
+      // Never swallow keys while someone is typing into a field.
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (t?.isContentEditable) return;
+
+      const action = keyToAction(e);
+      if (!action) return;
+      e.preventDefault();
+
+      switch (action.kind) {
+        case "advance":
+          advance();
+          break;
+        case "back":
+          back();
+          break;
+        case "goto":
+          go(action.state);
+          break;
+        case "reset-camera":
+          handles.current?.resetCamera();
+          break;
+        case "toggle-flatten":
+          handles.current?.toggleFlatten();
+          break;
+        case "replay-transcript":
+          replayTranscript();
+          break;
+        case "toggle-help":
+          setHelp((v) => !v);
+          break;
       }
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, []);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [advance, back, go, replayTranscript]);
 
-  // --- animation ----------------------------------------------------------
-  useEffect(() => {
-    if (!trips.length) return;
-    let raf = 0;
-    const loop = () => {
-      // ~90 s of subject time per second of wall clock; the paths are the only
-      // fast-moving thing on screen.
-      setTime((t) => (t + maxTime / 600) % (maxTime * 1.15));
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [trips, maxTime]);
+  const onReady = useCallback((m: MapLibreMap) => setMap(m), []);
 
-  // --- map setup ----------------------------------------------------------
-  const onLoad = useCallback(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-
-    // A wrong bearing hides the bright zone behind a ridge. Spec section 13.
-    map.dragRotate.disable();
-    map.touchZoomRotate.disableRotation();
-
-    if (!map.getSource("terrain")) {
-      map.addSource("terrain", {
-        type: "raster-dem",
-        tiles: [TERRAIN_TILES],
-        encoding: TERRAIN_ENCODING,
-        tileSize: 256,
-        maxzoom: TERRAIN_MAXZOOM,
-      });
-      // Pitch is 0 tonight, so terrain is invisible -- but wiring it now means
-      // raising the camera later is one constant, not a rewrite.
-      map.setTerrain({ source: "terrain", exaggeration: EXAGGERATION });
-    }
-  }, []);
-
-  // --- field as a draped image source -------------------------------------
-  useEffect(() => {
-    const map = mapRef.current?.getMap();
-    if (!map || !field) return;
-    const add = () => {
-      const grid = decodeGrid(field.grid, field.resolution);
-      // Repaint the SAME canvas element every update. The source holds a
-      // reference to it, so new pixels appear without re-adding the layer --
-      // which matters once C is streaming field_update roughly every second.
-      canvasRef.current = gridToCanvas(
-        grid,
-        field.resolution,
-        canvasRef.current ?? undefined,
-      );
-      if (map.getSource(FIELD_SOURCE)) {
-        map.triggerRepaint();
-        return;
-      }
-      map.addSource(FIELD_SOURCE, {
-        type: "canvas",
-        canvas: canvasRef.current,
-        coordinates: boundsToCoordinates(field.bounds),
-        // animate:true re-uploads the texture each frame. At 256x256 that is
-        // ~256 KB and negligible, and it is what makes streamed updates show
-        // up at all. Set false only if the field is known to be static.
-        animate: true,
-      });
-      map.addLayer({
-        id: FIELD_LAYER,
-        type: "raster",
-        source: FIELD_SOURCE,
-        paint: { "raster-opacity": 0.85, "raster-resampling": "linear" },
-      });
-    };
-    if (map.isStyleLoaded()) add();
-    else map.once("load", add);
-  }, [field]);
-
-  // --- ring ---------------------------------------------------------------
-  useEffect(() => {
-    const map = mapRef.current?.getMap();
-    if (!map || !caseInfo) return;
-    const add = () => {
-      if (map.getSource(RING_SOURCE)) return;
-      map.addSource(RING_SOURCE, {
-        type: "geojson",
-        data: ringPolygon(caseInfo.ipp, caseInfo.ring_radius_m),
-      });
-      map.addLayer({
-        id: "ring-line",
-        type: "line",
-        source: RING_SOURCE,
-        paint: {
-          "line-color": "#d8d2c4", // bone, not white
-          "line-width": 1.2,
-          "line-dasharray": [4, 3],
-          "line-opacity": 0.8,
-        },
-      });
-    };
-    if (map.isStyleLoaded()) add();
-    else map.once("load", add);
-  }, [caseInfo]);
-
-  // --- deck layers --------------------------------------------------------
-  const layers = useMemo(() => {
-    const out: unknown[] = [];
-    if (trips.length) {
-      out.push(
-        new TripsLayer({
-          id: "trips",
-          data: trips,
-          getPath: (d: Trip) => d.path,
-          getTimestamps: (d: Trip) => d.timestamps,
-          getColor: [255, 176, 74],
-          opacity: 0.6,
-          widthMinPixels: 1.4,
-          trailLength: maxTime * 0.28,
-          currentTime: time,
-          // Do NOT drape the paths. Floating above the ground looks better and
-          // avoids z-fighting where lines flicker in and out of hillsides.
-          parameters: { depthTest: false },
-        }),
-      );
-    }
-    if (caseInfo) {
-      out.push(
-        new ScatterplotLayer({
-          id: "ipp",
-          data: [caseInfo],
-          getPosition: (d: typeof caseInfo) => [d.ipp[1], d.ipp[0]],
-          getFillColor: [232, 226, 212],
-          getRadius: 90,
-          radiusMinPixels: 4,
-          parameters: { depthTest: false },
-        }),
-      );
-    }
-    return out;
-  }, [trips, time, maxTime, caseInfo]);
+  const mapVisible = showsMap(sl.state);
 
   return (
-    <main style={{ position: "fixed", inset: 0, background: "#14140f" }}>
-      <Map
-        ref={mapRef}
-        initialViewState={INITIAL_VIEW}
-        mapStyle={BASEMAP_STYLE}
-        onLoad={onLoad}
-        maxBounds={[
-          BOUNDS.west - 0.35,
-          BOUNDS.south - 0.35,
-          BOUNDS.east + 0.35,
-          BOUNDS.north + 0.35,
-        ]}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <DeckOverlay layers={layers} />
-      </Map>
-
+    <main
+      className="relative flex h-dvh w-full overflow-hidden"
+      style={{ background: "var(--ground)" }}
+    >
+      {/* The map is mounted for the whole session, not just the map states.
+          Remounting MapLibre would re-download tiles, rebuild the terrain mesh
+          and re-sample elevation every time the demo is rehearsed — several
+          seconds of black screen in the middle of a pitch. It is hidden
+          instead, which costs nothing while it has no layers animating. */}
       <div
+        className="absolute inset-0"
         style={{
-          position: "absolute",
-          left: 12,
-          bottom: 12,
-          padding: "8px 10px",
-          font: "12px ui-monospace, monospace",
-          color: "#d8d2c4",
-          background: "rgba(20,20,15,0.82)",
-          whiteSpace: "pre-line",
+          visibility: mapVisible ? "visible" : "hidden",
+          transition: `opacity ${STATE_TRANSITION_MS}ms ease`,
+          opacity: mapVisible ? 1 : 0,
         }}
+        aria-hidden={!mapVisible}
       >
-        {[
-          caseInfo?.region ?? BOUNDS.region,
-          caseInfo
-            ? `${caseInfo.incident}  ${caseInfo.subject_name} - ${caseInfo.ring_label}`
-            : "",
-          status,
-          `DATA_SOURCE=${DATA_SOURCE}  terrain=${TERRAIN_SOURCE}  pitch=${INITIAL_VIEW.pitch}  exaggeration=${EXAGGERATION}`,
-        ]
-          .filter(Boolean)
-          .join("\n")}
+        <MapCanvas
+          state={sl.state}
+          caseView={sl.caseView}
+          field={sl.field}
+          evidence={sl.evidence}
+          trips={sl.trips}
+          maxTime={sl.maxTime}
+          railWidth={RAIL_OCCLUDES}
+          onSampler={sl.setSampler}
+          onReady={onReady}
+          handlesRef={handles}
+        />
+
+        <ZoneLabels map={map} field={sl.field} state={sl.state} />
+
+        {/* Chart furniture, bottom left, clear of the rail. Stacked rather than
+            in one row: at the demo's zoom the scale bar is wide enough that a
+            single row pushed the ring annotation into the north arrow. */}
+        <div className="pointer-events-none absolute bottom-5 left-6 flex flex-col gap-3">
+          <div>
+            <RingLegend caseView={sl.caseView} />
+            <div
+              className="eyebrow mt-2"
+              style={{ color: "var(--bone-faint)" }}
+            >
+              Vertical exaggeration {TERRAIN_EXAGGERATION}×
+            </div>
+          </div>
+          <div className="flex items-end gap-6">
+            <ScaleBar map={map} />
+            <NorthArrow />
+          </div>
+        </div>
+
+        {/* Rehearsal instruments. Deliberately quiet and out of the way. */}
+        <div className="pointer-events-none absolute top-6 flex items-center gap-5"
+          style={{ right: RAIL_OCCLUDES + 8 }}>
+          <span
+            className="eyebrow"
+            style={{ color: "var(--bone-faint)" }}
+          >
+            {STATE_LABEL[sl.state]}
+          </span>
+          <span
+            className="eyebrow"
+            style={{
+              color:
+                sl.status === "open" ? "var(--bone-faint)" : "var(--amber)",
+            }}
+          >
+            {DATA_SOURCE} · {sl.status}
+          </span>
+          <FpsMeter />
+        </div>
       </div>
+
+      {/* Full-bleed states. */}
+      {sl.state === "landing" ? (
+        <div className="absolute inset-0 z-30">
+          <Landing onBegin={advance} />
+        </div>
+      ) : null}
+
+      {sl.state === "intake" ? (
+        <div className="absolute inset-0 z-30">
+          <Intake
+            transcript={sl.transcript}
+            transcriptFinal={sl.transcriptFinal}
+            extraction={sl.extraction}
+            incident={sl.caseView?.incident ?? "SL-2084"}
+            onBegin={advance}
+            onReplay={replayTranscript}
+          />
+        </div>
+      ) : null}
+
+      {mapVisible ? (
+        <Rail
+          inset={RAIL_INSET}
+          state={sl.state}
+          caseView={sl.caseView}
+          fleet={sl.fleet}
+          field={sl.field}
+          validation={sl.validation}
+          hypotheses={sl.hypotheses}
+          nRunsTotal={sl.nRunsTotal}
+          nRunsFailed={sl.nRunsFailed}
+          width={RAIL_WIDTH}
+        />
+      ) : null}
+
+      <HelpOverlay open={help} onClose={() => setHelp(false)} />
     </main>
   );
 }

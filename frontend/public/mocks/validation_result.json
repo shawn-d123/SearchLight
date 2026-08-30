@@ -1,0 +1,18 @@
+{
+  "n_cases": 6,
+  "our_score": null,
+  "ring_baseline": 0.761,
+  "ci95": [
+    0.52,
+    1.0
+  ],
+  "per_case": [
+    0.9467,
+    0.9867,
+    0.3398,
+    0.7635,
+    0.7635,
+    0.7635
+  ],
+  "_note": "ring_baseline is the ring on these SAME six cases with the SAME metric. Quote 0.761, never the published 0.78 (n=376, different cases). our_score stays null until the real validation run fills it."
+}

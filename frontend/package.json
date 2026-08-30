@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cache:tiles": "node scripts/cache-tiles.mjs",
+    "mocks": "python3 scripts/make-frontend-mocks.py",
+    "contours": "python3 scripts/make-contours.py",
+    "verify": "node scripts/verify.mjs",
+    "ws": "node scripts/mock-ws-server.mjs",
+    "dev:live": "NEXT_PUBLIC_DATA_SOURCE=live next dev --webpack"
   },
   "dependencies": {
     "@deck.gl/core": "^9.3.11",
@@ -15,21 +21,22 @@
     "@deck.gl/layers": "^9.3.11",
     "@deck.gl/mapbox": "^9.3.11",
     "@deck.gl/react": "^9.3.11",
-    "deck.gl": "^9.3.11",
-    "maplibre-gl": "^6.6.0",
+    "maplibre-gl": "~5.24.0",
     "next": "16.3.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "react-map-gl": "^8.1.2"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/geojson": "^7946.0.14",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ws": "^8.21.3"
   }
 }

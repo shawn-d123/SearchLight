@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from settings import MAX_SANDBOXES, load_case as settings_load_case
+from settings import DATA, MOCKS, MAX_SANDBOXES, load_case as settings_load_case
 from pipeline import Pipeline
 
 STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
@@ -177,6 +177,20 @@ def health():
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     hub.clients.add(ws)
+
+    # CONTRACT.md section 8: the frontend builds the ISRID ring, the IPP marker
+    # and every camera framing out of `case_loaded`. Emitting it only when a run
+    # starts meant that between connecting and pressing run the map had no case
+    # at all -- no ring, no marker, no framing -- and the static frame is the
+    # milestone the whole build rests on. The case is known at startup, so send
+    # it on connect. Skipped if a run has already put one in the history, which
+    # is replayed just below.
+    if not any(m.get("type") == "case_loaded" for m in hub.history):
+        try:
+            await ws.send_text(json.dumps(hub.envelope("case_loaded", load_case())))
+        except Exception as e:
+            print("case_loaded on connect failed: {}".format(e))
+
     for msg in hub.history:
         await ws.send_text(json.dumps(msg))
     await ws.send_text(json.dumps(hub.envelope("state_change",
@@ -195,6 +209,124 @@ async def ws_endpoint(ws: WebSocket):
         hub.clients.discard(ws)
 
 
+# --- intake and validation ---------------------------------------------------
+# The pipeline produces five of the seven states. It has nothing to say about
+# `intake` (a phone call) or `validation` (six historical cases scored offline),
+# so without these the demo could not be driven end to end from the socket: the
+# frontend sat on an empty transcript with BEGIN SEARCH disabled, and the
+# validation card had no numbers.
+#
+# INTAKE is the recorded transcript replayed at speaking pace. That is not a
+# shortcut around the live Web Speech path -- CONTRACT.md section 8 requires
+# exactly this as the mandatory fallback ("a key that types a pre-written
+# transcript at speaking pace"), because a hackathon venue at 5pm is loud. When
+# the live extraction exists it emits the same two message types and nothing
+# downstream changes.
+#
+# Word groups rather than one word at a time: real recognition arrives in
+# bursts, and the whole pitch is 90 seconds, so the call has to be over in
+# about six of them. Mirrors TRANSCRIPT_* in frontend/lib/config.ts.
+TRANSCRIPT_WORDS_PER_TICK = 2
+TRANSCRIPT_TICK_S = 0.15
+
+_scripted_task = None
+
+
+def _read_json(path, default=None):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+async def _play_intake():
+    """Stream the recorded call, then the fields it yields."""
+    try:
+        transcript = (MOCKS / "transcript.txt").read_text(encoding="utf-8").strip()
+    except Exception:
+        print("intake: mocks/transcript.txt missing; nothing to replay")
+        return
+    words = transcript.split()
+    ticks = (len(words) + TRANSCRIPT_WORDS_PER_TICK - 1) // TRANSCRIPT_WORDS_PER_TICK
+
+    extraction = _read_json(MOCKS / "extraction.json", {}) or {}
+    # Fields resolve one at a time, and resolution STARTS PARTWAY THROUGH the
+    # call rather than after it. A real streaming extraction does not wait for
+    # the caller to stop talking, and a report that sits empty for the whole
+    # call gives the presenter nothing to point at.
+    steps = [
+        {"subject": {"name": (extraction.get("subject") or {}).get("name")}},
+        {"subject": extraction.get("subject")},
+        {"last_known": extraction.get("last_known")},
+        {"assessment": extraction.get("assessment"),
+         "confidence": extraction.get("confidence")},
+    ]
+    steps = [s for s in steps if any(v for v in s.values())]
+
+    spoken = ticks * TRANSCRIPT_TICK_S
+    first_step = spoken * 0.5
+    every = (spoken * 0.5 + 0.7) / max(1, len(steps))
+
+    elapsed = 0.0
+    next_step = 0
+    for i in range(ticks):
+        upto = min(len(words), (i + 1) * TRANSCRIPT_WORDS_PER_TICK)
+        hub.emit_threadsafe("transcript_partial", {
+            "text": " ".join(words[:upto]),
+            "is_final": upto >= len(words)})
+        await asyncio.sleep(TRANSCRIPT_TICK_S)
+        elapsed += TRANSCRIPT_TICK_S
+        while (next_step < len(steps)
+               and elapsed >= first_step + next_step * every):
+            hub.emit_threadsafe("extraction_update", steps[next_step])
+            next_step += 1
+
+    # Anything the loop did not reach (a very short transcript).
+    for step in steps[next_step:]:
+        hub.emit_threadsafe("extraction_update", step)
+        await asyncio.sleep(every)
+
+
+def _emit_validation():
+    """The ring baseline is real and measured; our score is not, yet.
+
+    data/baseline.json holds the ring model scored over the six validation
+    cases. `our_score` stays None until someone runs the field through the same
+    harness -- the frontend renders that as "pending" rather than inventing a
+    number, which is the whole point of reporting honestly whichever way it
+    falls.
+    """
+    base = _read_json(DATA / "baseline.json", {}) or {}
+    try:
+        val = base["runs"]["derived (holdout)"]["validation"]
+    except Exception:
+        print("validation: data/baseline.json missing the holdout run")
+        return
+    hub.emit_threadsafe("validation_result", {
+        "n_cases": val.get("n", 6),
+        "our_score": None,
+        "ring_baseline": round(val.get("mean_R", 0.761), 3),
+        "ci95": val.get("ci95"),
+        "per_case": val.get("per_case"),
+    })
+
+
+def _start_scripted(state):
+    """Kick off whatever a state needs, cancelling the previous one.
+
+    Cancelling matters: advancing early must not leave an intake replay firing
+    transcript frames into a state that has moved on.
+    """
+    global _scripted_task
+    if _scripted_task and not _scripted_task.done():
+        _scripted_task.cancel()
+        _scripted_task = None
+    if state == "intake":
+        _scripted_task = asyncio.create_task(_play_intake())
+    elif state == "validation":
+        _emit_validation()
+
+
 async def handle(msg):
     t = msg.get("type")
     payload = msg.get("payload") or {}
@@ -204,6 +336,10 @@ async def handle(msg):
         if state in STATES:
             hub.state = state
             hub.emit_threadsafe("state_change", {"state": state})
+            _start_scripted(state)
+
+    elif t == "replay_transcript":
+        _start_scripted("intake")
 
     elif t == "run":
         if pipeline is None:

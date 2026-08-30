@@ -1,0 +1,94 @@
+{
+  "results": [
+    {
+      "step": "1-landing",
+      "fps": null,
+      "camera": {
+        "pitch": 0,
+        "zoom": 10.4,
+        "bearing": 0
+      }
+    },
+    {
+      "step": "2-intake",
+      "fps": null,
+      "camera": {
+        "pitch": 0,
+        "zoom": 10.4,
+        "bearing": 0
+      }
+    },
+    {
+      "step": "3-briefing",
+      "fps": null,
+      "camera": {
+        "pitch": 57,
+        "zoom": 10.61,
+        "bearing": 0
+      },
+      "meanLuma": 28.6,
+      "distinctColours": 28
+    },
+    {
+      "step": "4-simulating",
+      "fps": 19,
+      "camera": {
+        "pitch": 57,
+        "zoom": 10.61,
+        "bearing": 0
+      },
+      "meanLuma": 35.8,
+      "distinctColours": 73
+    },
+    {
+      "step": "5-field-ready",
+      "fps": null,
+      "camera": {
+        "pitch": 57,
+        "zoom": 10.7,
+        "bearing": 0
+      },
+      "meanLuma": 33.4,
+      "distinctColours": 72
+    },
+    {
+      "step": "6-evidence",
+      "fps": null,
+      "camera": {
+        "pitch": 57,
+        "zoom": 10.78,
+        "bearing": 0
+      },
+      "meanLuma": 31.3,
+      "distinctColours": 66
+    },
+    {
+      "step": "7-validation",
+      "fps": null,
+      "camera": {
+        "pitch": 57,
+        "zoom": 10.61,
+        "bearing": 0
+      },
+      "meanLuma": 30.7,
+      "distinctColours": 67
+    },
+    {
+      "step": "8-briefing-flat",
+      "fps": null,
+      "camera": {
+        "pitch": 15,
+        "zoom": 10.61,
+        "bearing": 0
+      },
+      "meanLuma": 30.1,
+      "distinctColours": 25
+    }
+  ],
+  "samplerMs": 307.9000000022352,
+  "errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

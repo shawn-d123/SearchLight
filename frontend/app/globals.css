@@ -1,7 +1,106 @@
-/* Scaffold only. Visual direction is Person A's call tomorrow.
-   Warm dark, not blue dark: charcoal with an olive cast reads as chart paper
-   in low light rather than a hacker terminal. */
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { height: 100%; background: #14140f; color: #d8d2c4; }
-body { font-family: ui-monospace, "IBM Plex Mono", monospace; }
-.maplibregl-ctrl-attrib { font-size: 10px; opacity: 0.5; }
+@import "tailwindcss";
+
+/* Warm dark, per CONTRACT §11: charcoal with an olive cast, linework in bone.
+   Reads as chart paper in low light rather than a hacker terminal.
+
+   Dark is also practical: this is presented on a projector in a dimmed room,
+   and the probability field is a luminous overlay that needs a dark ground.
+   On white it becomes a muddy stain.
+
+   These values are duplicated in lib/config.ts (COLOR) because MapLibre paint
+   properties cannot read CSS custom properties. If one changes, change both. */
+:root {
+  --ground: #14130e;
+  --ground-lift: #1c1a13;
+  --bone: #e8e2d0;
+  --bone-dim: #a9a390;
+  --bone-faint: #5d5844;
+  --amber: #e8a33d;
+  --field-hot: #ff5a47;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-ground-lift: var(--ground-lift);
+  --color-bone: var(--bone);
+  --color-bone-dim: var(--bone-dim);
+  --color-bone-faint: var(--bone-faint);
+  --color-amber: var(--amber);
+  --color-field-hot: var(--field-hot);
+  --font-sans: var(--font-instrument);
+  --font-display: var(--font-archivo);
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--ground);
+  color: var(--bone);
+  font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  /* Read across a room, not off a laptop. Every size in the app is a multiple
+     of this, so the whole screen scales from one number if the projector
+     turns out to be smaller than expected. */
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+/* The map is the product. Nothing scrolls. */
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Display face, for the wordmark and the headline figures. */
+.display {
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Figures that tick — counts, percentages, coordinates. Lining and tabular so
+   digits do not jitter as they update, which is distracting on a big number. */
+.tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* One label convention across the whole app, so a label always looks like a
+   label and never competes with a value. */
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+  line-height: 1;
+}
+
+/* MapLibre's default controls are chrome we never want on a projector. */
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo {
+  display: none !important;
+}
+
+.maplibregl-canvas:focus {
+  outline: none;
+}
+
+/* Keyboard focus has to stay visible — the demo is driven entirely by keys,
+   and a presenter who cannot see what is focused cannot recover from a
+   mis-press. Bone rather than the browser default blue. */
+:focus-visible {
+  outline: 2px solid var(--bone);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--ground);
+}
+
+/* Thin scrollbars in the rail; the default light ones punch a hole in a dark
+   screen on Windows, which is what the presenting laptop may well be. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bone-faint) transparent;
+}
