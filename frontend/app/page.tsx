@@ -81,6 +81,7 @@ export default function Home() {
   const [field, setField] = useState<FieldPayload | null>(null);
   const [caseInfo, setCaseInfo] = useState<{
     subject_name: string;
+    incident: string;
     ipp: [number, number];
     ring_radius_m: number;
     ring_label: string;
@@ -103,7 +104,17 @@ export default function Home() {
           fetch(MOCKS.field).then((r) => r.json()),
         ]);
         if (cancelled) return;
-        setCaseInfo(c);
+        // case.json is the CONTRACT.md s8 extraction payload (it IS the
+        // case_loaded message). Flattened here so the render path stays simple
+        // and the contract shape stays authoritative.
+        setCaseInfo({
+          subject_name: c.subject?.name ?? "SUBJECT",
+          incident: c.incident ?? "",
+          ipp: c.last_known?.ipp ?? c.ipp,
+          ring_radius_m: c.ring_radius_m,
+          ring_label: c.ring_label,
+          region: c.region,
+        });
         const { trips, nTotal, nFailed, maxTime } = batchesToTrips(t as Batch[]);
         setTrips(trips);
         setMaxTime(maxTime || 1);
@@ -292,7 +303,9 @@ export default function Home() {
       >
         {[
           caseInfo?.region ?? BOUNDS.region,
-          caseInfo ? `${caseInfo.subject_name} - ${caseInfo.ring_label}` : "",
+          caseInfo
+            ? `${caseInfo.incident}  ${caseInfo.subject_name} - ${caseInfo.ring_label}`
+            : "",
           status,
           `DATA_SOURCE=${DATA_SOURCE}  terrain=${TERRAIN_SOURCE}  pitch=${INITIAL_VIEW.pitch}  exaggeration=${EXAGGERATION}`,
         ]

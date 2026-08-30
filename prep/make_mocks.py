@@ -39,9 +39,22 @@ RUNS_PER_BATCH = 12      # live is 60; see note in case.json
 POINTS_PER_RUN = 34      # contract caps at 60
 FAIL_RATE = 0.05
 
-# Demo case. A real historical Hiker incident inside the chosen box, with a
-# 6.6 km displacement -- long enough that the field has somewhere to go.
-DEMO_CASE = "Arizona80"
+# The demo incident is FICTIONAL and comes from CONTRACT.md section 8 -- it is
+# what the intake call produces, so the mocks must agree with it or the report
+# card and the trajectories disagree at integration. The six REAL historical
+# cases in data/bbox.json are a separate concern, used only for validation.
+DEMO_CASE = "Arizona80"          # retained only for terrain/category reference
+DEMO_IPP = [32.4102, -110.7314]  # CONTRACT.md s8 - Marshall Gulch trailhead
+DEMO_INCIDENT = "SL-2084"
+
+TRANSCRIPT = (
+    "I need to report a missing person. My friend Alex Morgan went hiking on "
+    "the Marshall Gulch trail in the Catalinas this morning. He is twenty-four, "
+    "experienced hiker, been out there before. He was going to call me when he "
+    "reached the top but I have not heard from him since about ten past six. "
+    "His phone is going straight to voicemail so I think the battery is dead. "
+    "He was wearing a red jacket and he had no injuries when he set off."
+)
 
 FAMILIES = {
     "route_travelling": 0.41,
@@ -280,7 +293,7 @@ def main():
 
     bbox, priors, case = load_inputs()
     MOCKS.mkdir(exist_ok=True)
-    ipp = [float(case["ipp_lat"]), float(case["ipp_lon"])]
+    ipp = list(DEMO_IPP)
     rng = np.random.default_rng(SEED)
 
     print("demo case {}  IPP {:.5f}, {:.5f}".format(DEMO_CASE, *ipp))
@@ -345,32 +358,39 @@ def main():
     }
     payloads["field_collapsed.json"]["evidence"] = EVIDENCE
 
-    case_payload = {
-        "case_id": DEMO_CASE,
-        "subject_name": "SUBJECT AZ-80",
-        "subject_name_note": ("Case designator, not a person's name. The source "
-                              "records carry no personal details and none are "
-                              "invented here."),
-        "subject_category": case["category"],
-        "terrain": case["terrain"],
-        "last_contact_s_ago": 4320,
-        "last_contact_display": "72 min",
-        "ipp": ipp,
-        "ring_radius_m": round(priors["ring_radius_km"] * 1000.0, 1),
-        "ring_label": priors["ring_label"],
+    ring_m = round(priors["ring_radius_km"] * 1000.0, 1)
+
+    # CONTRACT.md s8 extraction payload. This IS the case_loaded payload.
+    # ring_radius_m is DERIVED from data/priors.json keyed on category --
+    # the model reads the call, the statistics come from ISRID. Never extracted.
+    extraction = {
+        "transcript": TRANSCRIPT,
+        "subject": {"name": "Alex Morgan", "age": 24, "category": "hiker",
+                    "experience": "experienced", "clothing": "red jacket",
+                    "injuries": "none reported"},
+        "last_known": {"place": "Marshall Gulch trailhead", "time": "06:10",
+                       "elapsed_min": 72, "ipp": ipp},
+        "assessment": {"ring_radius_m": ring_m, "conditions": "clear, 18C"},
+        "confidence": {"ipp": 0.9, "time": 0.95, "category": 1.0},
+    }
+
+    case_payload = dict(extraction, **{
+        "incident": DEMO_INCIDENT,
         "bounds": {k: bbox[k] for k in ("north", "south", "east", "west")},
         "region": bbox["region"],
-        "find_location": [float(case["find_lat"]), float(case["find_lon"])],
-        "find_location_note": ("Ground truth. For validation scoring only -- "
-                               "never render this before the reveal."),
+        "ring_radius_m": ring_m,
+        "ring_label": priors["ring_label"],
         "n_hypotheses": len(batches),
         "runs_per_batch": args.runs_per_batch,
         "runs_per_batch_note": ("Live is 60 per sandbox (200 x 60 = 12,000). "
                                 "Mocks ship fewer to keep the file loadable; "
-                                "regenerate with --runs-per-batch 60 to stress "
-                                "test the TripsLayer."),
+                                "regenerate with --stress to frame-rate test."),
+        "fictional_note": ("This incident is fictional and exists to drive the "
+                           "demo narrative. The six historical cases in "
+                           "data/bbox.json are real and are what validation "
+                           "scores against. Do not conflate them."),
         "source": bbox["source"],
-    }
+    })
 
     frames, target = [], len(batches)
     for i in range(20):
@@ -388,8 +408,8 @@ def main():
             "progress": round(f, 3),
         })
 
-    out = {"case.json": case_payload, "fleet_status.json": frames,
-           "trajectories.json": batches, **payloads}
+    out = {"case.json": case_payload, "extraction.json": extraction,
+           "fleet_status.json": frames, "trajectories.json": batches, **payloads}
 
     # Next.js serves /public, so the frontend needs its own copy. Written here
     # rather than copied by hand so the two can never drift apart.
@@ -404,6 +424,12 @@ def main():
             (d / name).write_text(text, encoding="utf-8")
         print("  wrote {:<22} {:>8.1f} KB  (mocks/ and frontend/public/mocks/)"
               .format(name, (MOCKS / name).stat().st_size / 1024))
+
+    # Intake fallback: a key types this at speaking pace if the mic fails.
+    for d in (MOCKS, public):
+        (d / "transcript.txt").write_text(TRANSCRIPT, encoding="utf-8")
+    print("  wrote {:<22} {:>8.1f} KB  (mocks/ and frontend/public/mocks/)"
+          .format("transcript.txt", (MOCKS / "transcript.txt").stat().st_size / 1024))
 
     # bbox.json is imported directly by frontend/lib/config.ts.
     (ROOT / "frontend" / "lib" / "bbox.json").write_text(

@@ -113,18 +113,47 @@ def main():
 
     missing = [n for n in ("case.json", "trajectories.json", "field.json",
                            "field_partial.json", "field_collapsed.json",
-                           "fleet_status.json") if not (MOCKS / n).exists()]
+                           "fleet_status.json", "extraction.json",
+                           "transcript.txt") if not (MOCKS / n).exists()]
     if missing:
         print("MISSING MOCKS: " + ", ".join(missing))
         return 1
 
+    # case.json IS the CONTRACT.md s8 extraction payload plus render extras.
     case = json.load(open(MOCKS / "case.json"))
-    for k in ("case_id", "subject_name", "ipp", "ring_radius_m", "bounds"):
+    for k in ("transcript", "subject", "last_known", "assessment",
+              "ring_radius_m", "bounds", "incident"):
         check(k in case, "case.json: missing '{}'".format(k))
-    ipp = case["ipp"]
+    for k in ("name", "age", "category", "experience", "clothing"):
+        check(k in case.get("subject", {}), "case.json: subject missing '{}'".format(k))
+    for k in ("place", "time", "elapsed_min", "ipp"):
+        check(k in case.get("last_known", {}), "case.json: last_known missing '{}'".format(k))
+    ipp = case["last_known"]["ipp"]
     check(inside(bbox, *ipp), "case.json: IPP is outside the bbox")
     check(abs(case["ring_radius_m"] - priors["ring_radius_km"] * 1000) < 1.0,
           "case.json: ring_radius_m disagrees with data/priors.json")
+    check(abs(case["assessment"]["ring_radius_m"] - case["ring_radius_m"]) < 1.0,
+          "case.json: assessment.ring_radius_m disagrees with the top-level one")
+
+    # extraction.json must be the same incident, or intake and map disagree.
+    ext = json.load(open(MOCKS / "extraction.json"))
+    check(ext.get("last_known", {}).get("ipp") == ipp,
+          "extraction.json: IPP differs from case.json - intake would place the "
+          "subject somewhere the trajectories do not start")
+    check(ext.get("subject", {}).get("name") == case["subject"]["name"],
+          "extraction.json: subject name differs from case.json")
+    check(abs(ext["assessment"]["ring_radius_m"]
+              - priors["ring_radius_km"] * 1000) < 1.0,
+          "extraction.json: ring_radius_m must be DERIVED from priors.json")
+
+    tr = (MOCKS / "transcript.txt").read_text(encoding="utf-8")
+    check(len(tr) > 200, "transcript.txt: too short to be the demo script")
+    for phrase in ("Alex Morgan", "Marshall Gulch", "red jacket"):
+        check(phrase in tr,
+              "transcript.txt: missing '{}' - every detail in the script drives "
+              "something visible".format(phrase))
+    check(ext.get("transcript", "").strip() == tr.strip(),
+          "extraction.json: transcript differs from transcript.txt")
 
     # --- trajectories -------------------------------------------------------
     batches = json.load(open(MOCKS / "trajectories.json"))

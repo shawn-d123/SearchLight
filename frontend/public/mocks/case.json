@@ -1,17 +1,32 @@
 {
-  "case_id": "Arizona80",
-  "subject_name": "SUBJECT AZ-80",
-  "subject_name_note": "Case designator, not a person's name. The source records carry no personal details and none are invented here.",
-  "subject_category": "Hiker",
-  "terrain": "Mountainous",
-  "last_contact_s_ago": 4320,
-  "last_contact_display": "72 min",
-  "ipp": [
-    32.41976668,
-    -110.7473333
-  ],
-  "ring_radius_m": 9545.9,
-  "ring_label": "ISRID RING - 95TH PCTL - 9.5 km",
+  "transcript": "I need to report a missing person. My friend Alex Morgan went hiking on the Marshall Gulch trail in the Catalinas this morning. He is twenty-four, experienced hiker, been out there before. He was going to call me when he reached the top but I have not heard from him since about ten past six. His phone is going straight to voicemail so I think the battery is dead. He was wearing a red jacket and he had no injuries when he set off.",
+  "subject": {
+    "name": "Alex Morgan",
+    "age": 24,
+    "category": "hiker",
+    "experience": "experienced",
+    "clothing": "red jacket",
+    "injuries": "none reported"
+  },
+  "last_known": {
+    "place": "Marshall Gulch trailhead",
+    "time": "06:10",
+    "elapsed_min": 72,
+    "ipp": [
+      32.4102,
+      -110.7314
+    ]
+  },
+  "assessment": {
+    "ring_radius_m": 9545.9,
+    "conditions": "clear, 18C"
+  },
+  "confidence": {
+    "ipp": 0.9,
+    "time": 0.95,
+    "category": 1.0
+  },
+  "incident": "SL-2084",
   "bounds": {
     "north": 32.576089,
     "south": 32.197678,
@@ -19,13 +34,11 @@
     "west": -111.069734
   },
   "region": "Santa Catalina Mountains, Arizona, USA",
-  "find_location": [
-    32.36550001,
-    -110.7758333
-  ],
-  "find_location_note": "Ground truth. For validation scoring only -- never render this before the reveal.",
+  "ring_radius_m": 9545.9,
+  "ring_label": "ISRID RING - 95TH PCTL - 9.5 km",
   "n_hypotheses": 200,
   "runs_per_batch": 12,
-  "runs_per_batch_note": "Live is 60 per sandbox (200 x 60 = 12,000). Mocks ship fewer to keep the file loadable; regenerate with --runs-per-batch 60 to stress test the TripsLayer.",
+  "runs_per_batch_note": "Live is 60 per sandbox (200 x 60 = 12,000). Mocks ship fewer to keep the file loadable; regenerate with --stress to frame-rate test.",
+  "fictional_note": "This incident is fictional and exists to drive the demo narrative. The six historical cases in data/bbox.json are real and are what validation scores against. Do not conflate them.",
   "source": "MapScore ISRID distributable subset (Arizona), https://github.com/ctwardy/mapscore -- filtered to hiker-like categories on mountainous terrain, find inside the 25 km scoring window and not identical to the IPP"
 }
