@@ -80,10 +80,22 @@ python prep/validate_mocks.py      # checks all six against CONTRACT.md
 python prep/verify_baseline.py     # reproduces the ring baseline
 ```
 
+Terrain tiles for offline use (189 tiles, ~21 MB, already committed):
+
+```bash
+python prep/cache_tiles.py
+```
+
 Frontend:
 
 ```bash
 cd frontend && npm install && npm run dev
+```
+
+Frame-rate stress fixture (12,000 runs, gitignored, ~10 s):
+
+```bash
+python prep/make_mocks.py --stress
 ```
 
 `DATA_SOURCE` in `frontend/lib/config.ts` switches `'mock'` → `'live'`.

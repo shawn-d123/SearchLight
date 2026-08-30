@@ -28,6 +28,53 @@ supplied and used; the other two are still needed.
 
 ---
 
+## Ready for the build — what each person can start on immediately
+
+### Person A — frontend
+`cd frontend && npm run dev`. Everything on your prep checklist is done except
+the two judgement calls that are yours:
+
+- deck.gl over MapLibre, sharing a camera, panning in lockstep — **done**
+- terrain, `terrarium` encoding, **189 tiles cached locally into
+  `public/tiles`** (z8–z13, 21 MB, committed). `TERRAIN_SOURCE` in
+  `lib/config.ts` is already `'local'`, so the demo does not touch the network
+  for terrain. **`TERRAIN_MAXZOOM` is 13 — do not raise it without re-caching,
+  or MapLibre 404s and the terrain silently goes flat.**
+- rotation disabled, `PITCH = 0`, `EXAGGERATION = 3.0` as named constants
+- TripsLayer animating from mocks — **done**
+- **Frame-rate check:** `python prep/make_mocks.py --stress` writes
+  `trajectories_12k.json` (12,000 runs, 60 points each, ~10 s to generate). It
+  is gitignored, so generate it locally. `MOCKS.trajectories12k` already points
+  at it.
+- **Draping decision made for you:** the field is a MapLibre **canvas** source,
+  not a deck layer, so MapLibre drapes it natively. Paths deliberately float —
+  do not drape them.
+- Styling untouched. The visual direction is yours.
+
+**Still your call:** the steep-slope draping sanity check, and everything in
+section 7 of your brief.
+
+> **One risk I did not solve:** `BASEMAP_STYLE` still loads from CARTO's CDN.
+> Terrain is offline but the basemap is not, so on a dead network you get a
+> black map under working terrain. Flagged in `config.ts`.
+
+### Person B — simulation and Daytona
+`worker/README.md` and `orchestrator/README.md` describe what you own, the
+contract shapes, and the traps. **All four terrain arrays exist and are
+committed** — 33.7 MB, ready to bake:
+
+`elevation.npy` `slope.npy` `trail_dist.npy` `water_dist.npy`, all
+1395 × 1510 at 30 m, row 0 north, geometry verified against Mount Lemmon.
+
+First move: key into `.env`, then `python prep/daytona_probe.py --n 5`.
+
+### Person C — you
+`model/score.py` and `model/ring_model.py` are done and the baseline
+reproduces. Sunday is `build_field` (10:45) and `apply_evidence` (13:30),
+whose signatures are already frozen in `model/field.py`.
+
+---
+
 ## The one decision already taken, and why
 
 **The spec assumed Yosemite. There are no Yosemite cases.**
@@ -60,7 +107,7 @@ Nothing else changes.** Every argument still holds.
 | 4 — mocks | done, and validated against the contract |
 | 5 — scoring harness + ring baseline | done, **and it reproduces** |
 | 6 — `model/field.py` shapes | done |
-| 7 — frontend scaffold | done, builds and serves |
+| 7 — frontend scaffold | done, builds and serves, terrain tiles cached |
 | 8 — Daytona probe | **script written, never run — no key** |
 
 ### Numbers worth knowing before you speak

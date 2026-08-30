@@ -14,6 +14,15 @@ prep/.osm_cache/
 # The four worker arrays ARE committed -- Person B bakes them into the
 # Daytona snapshot: elevation.npy slope.npy trail_dist.npy water_dist.npy
 
+# Frame-rate stress fixture, 12.3 MB in two places. Regenerates in ~10 s:
+#   python prep/make_mocks.py --stress
+mocks/trajectories_12k.json
+frontend/public/mocks/trajectories_12k.json
+
+# NOTE: frontend/public/tiles/ IS committed on purpose -- 189 cached terrain
+# tiles, 21 MB. Regenerating them needs the network, which is exactly the
+# failure we are insuring against. See prep/cache_tiles.py.
+
 # python
 __pycache__/
 *.py[cod]

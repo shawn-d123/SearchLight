@@ -28,6 +28,8 @@ import {
   INITIAL_VIEW,
   MOCKS,
   TERRAIN_ENCODING,
+  TERRAIN_MAXZOOM,
+  TERRAIN_SOURCE,
   TERRAIN_TILES,
 } from "@/lib/config";
 import {
@@ -149,7 +151,7 @@ export default function Home() {
         tiles: [TERRAIN_TILES],
         encoding: TERRAIN_ENCODING,
         tileSize: 256,
-        maxzoom: 14,
+        maxzoom: TERRAIN_MAXZOOM,
       });
       // Pitch is 0 tonight, so terrain is invisible -- but wiring it now means
       // raising the camera later is one constant, not a rewrite.
@@ -292,7 +294,7 @@ export default function Home() {
           caseInfo?.region ?? BOUNDS.region,
           caseInfo ? `${caseInfo.subject_name} - ${caseInfo.ring_label}` : "",
           status,
-          `DATA_SOURCE=${DATA_SOURCE}  pitch=${INITIAL_VIEW.pitch}  exaggeration=${EXAGGERATION}`,
+          `DATA_SOURCE=${DATA_SOURCE}  terrain=${TERRAIN_SOURCE}  pitch=${INITIAL_VIEW.pitch}  exaggeration=${EXAGGERATION}`,
         ]
           .filter(Boolean)
           .join("\n")}

@@ -270,7 +270,13 @@ def filter_evidence(batches, ev):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs-per-batch", type=int, default=RUNS_PER_BATCH)
+    ap.add_argument("--stress", action="store_true",
+                    help="write ONLY trajectories_12k.json at 60 runs/batch, "
+                         "for Person A's frame-rate check. Leaves the standard "
+                         "mocks untouched.")
     args = ap.parse_args()
+    if args.stress:
+        args.runs_per_batch = 60
 
     bbox, priors, case = load_inputs()
     MOCKS.mkdir(exist_ok=True)
@@ -283,6 +289,21 @@ def main():
     n_fail = sum(1 for b in batches for r in b["runs"] if r["status"] != "ok")
     print("  {} batches, {} runs, {} failed ({:.1f}%)".format(
         len(batches), n_runs, n_fail, 100 * n_fail / n_runs))
+
+    if args.stress:
+        # Person A's checklist: "Verify 12,000 paths at realistic point counts."
+        # TripsLayer runs on the GPU so it should hold, but confirm rather than
+        # assume. If it stutters, render a visible subset of ~2,000 -- the
+        # visual is identical and nobody can count them.
+        text = json.dumps(batches, separators=(",", ":"))
+        for d in (MOCKS, ROOT / "frontend" / "public" / "mocks"):
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "trajectories_12k.json").write_text(text, encoding="utf-8")
+        print("  wrote trajectories_12k.json  {:.1f} MB  ({} runs)".format(
+            (MOCKS / "trajectories_12k.json").stat().st_size / 1e6, n_runs))
+        print("  standard mocks left untouched. Point MOCKS.trajectories at")
+        print("  /mocks/trajectories_12k.json in lib/config.ts to stress test.")
+        return
 
     # Put the witness sighting on a real trajectory so the filter keeps a
     # sensible fraction rather than an arbitrary one.

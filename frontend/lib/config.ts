@@ -40,11 +40,31 @@ export const INITIAL_VIEW = {
 export const BASEMAP_STYLE =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
-// AWS public terrain tiles. No key, no rate limit. Cache these locally before
-// the venue -- do not trust venue wifi at 16:50.
+// Terrain source. 'local' serves the 189 tiles cached into public/tiles by
+// prep/cache_tiles.py -- z8..z13 over the bbox, 21 MB, committed.
+//
+// DEFAULT IS LOCAL ON PURPOSE. Venue wifi at 16:50 is not something to rely on,
+// and a demo that cannot load terrain is not a demo. Switch to 'remote' only if
+// you need zoom levels past 13, and switch back before rehearsal.
+export const TERRAIN_SOURCE: "local" | "remote" = "local";
+
 export const TERRAIN_TILES =
-  "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+  TERRAIN_SOURCE === "local"
+    ? "/tiles/terrarium/{z}/{x}/{y}.png"
+    : "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+
+// Must not exceed what is actually cached, or MapLibre requests tiles that 404
+// and the terrain silently goes flat. Overzooming past this is fine -- terrain
+// is smooth, so the interpolation is invisible.
+export const TERRAIN_MAXZOOM = TERRAIN_SOURCE === "local" ? 13 : 15;
+
+// terrarium, NOT mapbox. Getting this wrong produces terrain that looks like noise.
 export const TERRAIN_ENCODING = "terrarium" as const;
+
+// WARNING: the basemap style below still loads from CARTO's CDN. Terrain is now
+// offline but the basemap is not, so on a dead network the map renders black
+// under a working heightfield. If that risk matters, build a local style JSON
+// with a flat background plus data/trails.geojson and drop BASEMAP_STYLE.
 
 // --- field rendering --------------------------------------------------------
 // Single hue, opacity ramp: transparent -> amber -> hot coral. NOT a rainbow,
@@ -67,6 +87,10 @@ export const FIELD_MAX_ALPHA = 210;
 export const MOCKS = {
   case: "/mocks/case.json",
   trajectories: "/mocks/trajectories.json",
+  // 12,000 runs at 60 points each, for the frame-rate check on A's checklist.
+  // Swap `trajectories` to this to stress test. Regenerate with:
+  //   python prep/make_mocks.py --stress
+  trajectories12k: "/mocks/trajectories_12k.json",
   field: "/mocks/field.json",
   fieldPartial: "/mocks/field_partial.json",
   fieldCollapsed: "/mocks/field_collapsed.json",
