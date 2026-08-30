@@ -240,26 +240,38 @@ def find_zones(grid, bounds, k=2, min_separation_cells=None, terrain=None):
     if total <= 0:
         return []
 
-    # A true local maximum, not merely a bright cell.
+    # Prefer true local maxima, but do NOT stop when they run out. A field
+    # concentrated into a single blob has exactly one local maximum, so the
+    # earlier version returned ONE zone -- and the contract and the side rail
+    # both expect two. Fall back to the brightest remaining cell outside the
+    # suppressed window so k zones always come back while mass remains.
     peaks = (g == maximum_filter(g, size=max(3, sep // 2))) & (g > 0)
-    work = np.where(peaks, g, 0.0)
+    avail = g.copy()
+    peak_only = np.where(peaks, g, 0.0)
+    # Mass is claimed from `remaining`, not from `g`. Suppression windows
+    # overlap when two peaks sit closer than 2*sep -- measured 100% + 44.6% for
+    # two zones 26 cells apart at sep=25 -- and the rail would then show
+    # percentages summing past 100.
+    remaining = g.copy()
 
     zones = []
     for _ in range(k):
-        idx = int(np.argmax(work))
-        r, c = np.unravel_index(idx, g.shape)
-        if work[r, c] <= 0:
-            break
+        src = peak_only if peak_only.max() > 0 else avail
+        if src.max() <= 0:
+            break                      # genuinely no mass left
+        r, c = np.unravel_index(int(np.argmax(src)), g.shape)
         r0, r1 = max(0, r - sep), min(n, r + sep + 1)
         c0, c1 = max(0, c - sep), min(n, c + sep + 1)
-        pct = float(g[r0:r1, c0:c1].sum() / total * 100.0)
+        pct = float(remaining[r0:r1, c0:c1].sum() / total * 100.0)
+        remaining[r0:r1, c0:c1] = 0.0
         lat, lon = cell_latlon(bounds, n, r, c)
         zones.append({
             "name": _zone_name(bounds, n, r, c, terrain),
             "pct": round(pct, 1),
             "centroid": [round(lat, 6), round(lon, 6)],
         })
-        work[r0:r1, c0:c1] = 0.0
+        peak_only[r0:r1, c0:c1] = 0.0
+        avail[r0:r1, c0:c1] = 0.0
     return zones
 
 

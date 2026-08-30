@@ -52,6 +52,8 @@ class Hub:
         self.lock = threading.Lock()
         self.history = []          # replayed to a client that joins mid-run
         self.state = "landing"
+        self.pending = collections.deque()
+        self.draining = False
 
     def envelope(self, mtype, payload):
         with self.lock:
@@ -69,7 +71,47 @@ class Hub:
             self.clients.discard(ws)
 
     def emit_threadsafe(self, mtype, payload):
-        """Called from the pipeline's worker thread."""
+        """Called from the pipeline's worker thread.
+
+        Queued, not sent directly. seq was previously stamped here and the send
+        scheduled separately with run_coroutine_threadsafe, so concurrent
+        producer threads had their sends completed out of order -- measured
+        breaks like trajectory_batch seq=112 followed by fleet_status seq=106.
+        The lock protected the counter but not the wire, and a frontend cannot
+        order or de-duplicate on a seq that goes backwards.
+
+        seq is now stamped by the single drain task, immediately before the
+        send, so wire order and seq order are the same by construction.
+        """
+        with self.lock:
+            self.pending.append((mtype, payload))
+        if self.loop is None:
+            return
+        asyncio.run_coroutine_threadsafe(self._drain(), self.loop)
+
+    async def _drain(self):
+        if self.draining:
+            return                      # single-flight; the running task will see it
+        self.draining = True
+        try:
+            while True:
+                with self.lock:
+                    if not self.pending:
+                        return
+                    mtype, payload = self.pending.popleft()
+                    self.seq += 1
+                    msg = {"type": mtype, "seq": self.seq, "payload": payload}
+                    if mtype == "case_loaded":
+                        self.history = []
+                    if mtype in ("case_loaded", "sim_started", "hypotheses_ready",
+                                 "fleet_ready", "state_change"):
+                        self.history.append(msg)
+                        del self.history[:-32]
+                await self._send(msg)
+        finally:
+            self.draining = False
+
+    def _legacy_emit(self, mtype, payload):
         msg = self.envelope(mtype, payload)
         # Trajectories and fields are large and stale the moment they land; only
         # keep the small state-setting messages for a late joiner.

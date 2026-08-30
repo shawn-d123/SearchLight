@@ -14,3 +14,11 @@ osmnx
 # OpenTopography 3DEP GeoTIFF fine, and geopandas writes GeoJSON via
 # gdf.to_json() rather than to_file(), which needs no GDAL either.
 tifffile
+
+# Orchestrator and generation. Not needed by the sandbox worker (numpy only),
+# but the WS server and the model calls will not import without them.
+fastapi
+uvicorn[standard]
+websockets
+openai
+daytona
