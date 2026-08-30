@@ -1,0 +1,12 @@
+{
+  "measured_at": "2026-08-30 14:10:53",
+  "n_requested": 10,
+  "n_ready": 10,
+  "tier_ceiling": 10,
+  "warm_pool_available": false,
+  "acquire_wall_s": 2.17,
+  "dispatch_wall_s": 0.905,
+  "runs_ok": 600,
+  "runs_total": 600,
+  "sims_per_s": 662.8
+}

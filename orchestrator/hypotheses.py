@@ -1,191 +1,230 @@
-"""Plan the hypothesis set for one incident.
+"""One model call before the fan-out proposes hypotheses for THIS incident.
 
-CONTRACT.md section 4. Families come from the published ISRID priors; the
-model varies behaviour WITHIN a family rather than inventing the statistical
-structure. This module owns the part that is not the model's to choose.
+Without this the hypothesis list is the five family names from
+`data/priors.json` -- generic categories that apply to any lost hiker anywhere,
+and a fair judge can say the model is only writing short numpy loops. With it,
+the model reads a real terrain summary and proposes behaviours that exist
+because of this landscape.
 
-Why durations are sampled, not fixed
-------------------------------------
-Run every hypothesis for a fixed four hours and every walker covers roughly
-the same ground, so endpoint distances bunch: measured p50 4.79 km against an
-ISRID p50 of 2.86 km, and a p95 of 6.98 km against 9.55 km. Too far in the
-middle, too short in the tail.
+**Family weights still come from `data/priors.json`.** The model proposes
+variations WITHIN published categories; it does not invent the statistical
+structure. A returned hypothesis whose family is not one of the five is
+dropped. That is what keeps the ISRID grounding intact, which is the whole
+basis of the project.
 
-That matters more than it looks. The whole claim is "the same published
-statistics, applied through terrain instead of a circle". If the simulated
-distance distribution does not reproduce the published quantiles, the claim is
-rhetorical. Sampling duration from a lognormal restores the spread, and the
-resulting distance distribution is then CHECKED against priors.json rather
-than assumed -- see `calibrate` and prep/check_calibration.py.
-
-This is calibration against published priors, which is the stated method. It
-is emphatically NOT tuning against the validation score, which would be
-circular and is warned about explicitly in the brief.
+    python orchestrator/hypotheses.py --n 12
 """
 from __future__ import annotations
 
-import json
-import math
-from pathlib import Path
+import argparse, json, os, sys, time
 
-import numpy as np
+from settings import DATA, MOCKS, key
+from terrain_summary import summarise
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+HYPOTHESIS_MODEL = os.environ.get("SEARCHLIGHT_HYPOTHESIS_MODEL", "gpt-5.4")
 
-# Lognormal spread of walking duration. sigma is set from the published
-# quantile ratio p95/p50, since for a lognormal p95/p50 = exp(1.645 * sigma).
-# Solved in calibrate() rather than hardcoded, so it follows priors.json if
-# the priors are ever regenerated.
-DEFAULT_DURATION_S = 14400.0
-MIN_DURATION_S = 900.0
-MAX_DURATION_S = 12 * 3600.0
+SYSTEM = ("You are a search-and-rescue planner. You reason about where a "
+          "specific missing person plausibly went on specific ground, and you "
+          "answer with JSON only.")
+
+PROMPT = """A person is missing. Propose {n} distinct hypotheses about what they did.
+
+SUBJECT
+{subject}
+
+CONDITIONS
+Last contact {elapsed_min:.0f} minutes ago. {conditions}
+
+TERRAIN AROUND THE LAST KNOWN POINT
+{terrain}
+{local}
+FAMILIES — every hypothesis must be tagged with exactly one of these, spelled
+exactly as written. These are published ISRID behaviour categories and their
+weights are fixed; you are proposing variations WITHIN them, not new ones.
+
+{families}
+
+Return JSON: {{"hypotheses": [{{"family": ..., "description": ..., "rationale": ...}}]}}
+
+- `description`: one sentence, plain English, what the person did. It goes on
+  screen in front of an audience, so name real features from the terrain summary
+  above — the drainage, the ridge, the direction, the trail. "Followed the
+  drainage south-east from the junction, path of least resistance on tiring
+  legs" is right. "Route travelling behaviour" is useless.
+- `rationale`: one sentence on why this ground makes that plausible. Cite a
+  number from the summary.
+- Spread them across the families roughly in proportion to the weights, and make
+  them genuinely different from each other — different directions, different
+  terrain features. {n} near-identical hypotheses are worth one.
+{local_rule}
+JSON only."""
 
 
 def load_priors():
-    return json.load(open(DATA / "priors.json"))
+    return json.loads((DATA / "priors.json").read_text())
 
 
-def duration_sigma(priors):
-    """Lognormal sigma implied by the published p95/p50 distance ratio."""
-    q = priors["distance_km"]
-    ratio = max(1.05, q["p95"] / max(q["p50"], 1e-6))
-    return math.log(ratio) / 1.645
+def load_local_knowledge():
+    """The cached Parallel pass. Missing or empty is FINE and expected --
+    hypothesis generation proceeds on terrain and statistics alone."""
+    p = DATA / "local_knowledge.json"
+    if not p.exists():
+        return []
+    try:
+        return json.loads(p.read_text()).get("findings", []) or []
+    except Exception:
+        return []
 
 
-def sample_durations(n, base_s, sigma, rng):
-    """Lognormal durations with median `base_s`."""
-    d = base_s * rng.lognormal(mean=0.0, sigma=sigma, size=n)
-    return np.clip(d, MIN_DURATION_S, MAX_DURATION_S)
+def _families_block(families):
+    return "\n".join("  {:<20} weight {:.2f}".format(k, v)
+                     for k, v in sorted(families.items(), key=lambda x: -x[1]))
 
 
-def sample_families(n, priors, rng):
-    fam = priors["families"]
-    names = list(fam)
-    w = np.array([fam[k] for k in names], dtype=float)
-    w = w / w.sum()
-    idx = rng.choice(len(names), size=n, p=w)
-    return [names[i] for i in idx], fam
+def build_prompt(case, terrain_text, n, families, findings):
+    if findings:
+        local = ("\nDOCUMENTED LOCAL KNOWLEDGE — real incidents and advisories "
+                 "for this range:\n" +
+                 "\n".join("  - {} [{}]".format(f.get("claim", ""),
+                                                f.get("label", "source"))
+                           for f in findings[:8]) + "\n")
+        local_rule = ("- Where a hypothesis is grounded in one of the documented "
+                      "findings above, add \"source_label\" with that finding's "
+                      "label verbatim.\n")
+    else:
+        local, local_rule = "", ""
+
+    subject = "{}, category {}, terrain {}.".format(
+        case.get("subject_name", "unknown"),
+        case.get("subject_category", "Hiker"),
+        case.get("terrain", "Mountainous"))
+
+    return PROMPT.format(
+        n=n, subject=subject,
+        elapsed_min=case.get("last_contact_s_ago", 4320) / 60.0,
+        conditions=case.get("conditions", "Clear, daylight."),
+        terrain=terrain_text, local=local, local_rule=local_rule,
+        families=_families_block(families))
 
 
-def plan(ipp, n=200, n_runs=60, priors=None, rng=None, base_s=None,
-         terrain=None):
-    """Build `n` hypotheses for one incident.
+def generate(case, n=12, model=HYPOTHESIS_MODEL, oai=None, data_dir=None):
+    """Returns (hypotheses, error). On any failure returns the fixed-family
+    fallback and an error string -- the demo never depends on this call."""
+    priors = load_priors()
+    families = priors["families"]
+    facts, terrain_text = summarise(*case["ipp"], data_dir=data_dir)
+    findings = load_local_knowledge()
 
-    Returns a list of CONTRACT.md section 4 objects. `description` and
-    `rationale` are filled from terrain when a Terrain is supplied, so the
-    strings that surface on screen are site-specific rather than textbook --
-    and they are honest, because they are derived from the arrays rather than
-    written by a model that has not seen the ground.
-    """
-    priors = priors or load_priors()
-    rng = rng or np.random.default_rng(0)
-    base_s = base_s or DEFAULT_DURATION_S
-    sigma = duration_sigma(priors)
+    if oai is None:
+        from codegen import client
+        oai = client()
 
-    families, fam_w = sample_families(n, priors, rng)
-    durations = sample_durations(n, base_s, sigma, rng)
+    raw, err = None, None
+    try:
+        r = oai.chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": SYSTEM},
+                      {"role": "user",
+                       "content": build_prompt(case, terrain_text, n,
+                                               families, findings)}],
+            response_format={"type": "json_object"},
+            timeout=120)
+        raw = json.loads(r.choices[0].message.content)["hypotheses"]
+    except Exception as e:
+        err = "{}: {}".format(type(e).__name__, e)[:200]
 
-    summary = terrain.summary(ipp[0], ipp[1]) if terrain is not None else None
+    if not raw:
+        return fallback_hypotheses(case, n, families), (err or "empty response")
 
+    by_label = {f.get("label"): f for f in findings}
     out = []
-    for i, (f, dur) in enumerate(zip(families, durations)):
-        h = {
-            "hypothesis_id": "h_{:05d}".format(i),
-            "family": f,
-            "weight": round(float(fam_w[f]), 4),
-            "start": [float(ipp[0]), float(ipp[1])],
-            "duration_s": int(dur),
-            "n_runs": int(n_runs),
-            "seed_base": int(i) * 1000,
+    for h in raw:
+        fam = (h.get("family") or "").strip()
+        if fam not in families:
+            continue  # cannot map to a published family -> drop it
+        item = {
+            "family": fam,
+            "description": (h.get("description") or fam).strip(),
+            "rationale": (h.get("rationale") or "").strip(),
+            "weight": families[fam],
         }
-        if summary:
-            h["description"] = _describe(f, summary)
-            h["rationale"] = _rationale(f, summary)
-            h["source"] = {"kind": "terrain",
-                           "label": "derived from the 30 m terrain arrays"}
-        out.append(h)
+        finding = by_label.get(h.get("source_label"))
+        if finding:
+            item["source"] = {"kind": "local",
+                              "label": finding.get("label"),
+                              "url": finding.get("url")}
+        else:
+            item["source"] = {"kind": "terrain"}
+        out.append(item)
+
+    if not out:
+        return fallback_hypotheses(case, n, families), "no mappable families"
+    return out, None
+
+
+def fallback_hypotheses(case, n, families=None):
+    """Fixed families, no model. The demo survives on this alone."""
+    families = families or load_priors()["families"]
+    order = sorted(families.items(), key=lambda x: -x[1])
+    out = []
+    for i in range(n):
+        fam, w = order[i % len(order)]
+        out.append({"family": fam,
+                    "description": fam.replace("_", " ").capitalize(),
+                    "rationale": "", "weight": w,
+                    "source": {"kind": "statistical"}})
     return out
 
 
-def _describe(family, s):
-    d = s["descends_to"]
-    return {
-        "route_travelling":
-            "Stayed on the path network, {} m from the nearest way at the "
-            "last known point".format(s["trail_dist_m"]),
-        "direction_sampling":
-            "Committed to a bearing off the trail across {} terrain, mean "
-            "slope {} degrees".format(s["landform"], s["mean_slope_deg"]),
-        "backtracking":
-            "Went out, recognised the error, and turned back toward the last "
-            "known point",
-        "view_enhancing":
-            "Climbed for a sightline or a phone signal, {} m of relief "
-            "available nearby".format(s["relief_m"]),
-        "staying_put":
-            "Sheltered close to the last known point, water {} m away"
-            .format(s["water_dist_m"]),
-    }[family] if family != "direction_sampling" else (
-        "Followed the fall line {} from the {} at the last known point"
-        .format(d, s["landform"]))
+def expand(hyps, case, total_runs=12000, dt_seed=1000):
+    """Attach the per-sandbox run counts and the CONTRACT.md section 4 fields.
 
-
-def _rationale(family, s):
-    return ("Ground around the IPP is {} at {} m with {} m of relief, mean "
-            "slope {} degrees, {}% of it steeper than 30. Steepest descent "
-            "runs {}. Nearest trail {} m, nearest water {} m.".format(
-                s["landform"], s["elevation_m"], s["relief_m"],
-                s["mean_slope_deg"], round(s["steep_fraction"] * 100),
-                s["descends_to"], s["trail_dist_m"], s["water_dist_m"]))
-
-
-def calibrate(ipp, terrain, priors=None, n=80, n_runs=40, rng=None,
-              iterations=6):
-    """Solve for the base duration whose endpoint distances match the priors.
-
-    Runs short pilot fleets and scales the median duration until the simulated
-    median distance lands on the published p50. Distance is not linear in
-    duration -- fatigue and terrain both bite -- so this iterates rather than
-    solving in closed form.
-
-    Returns (base_s, report).
+    `n_runs` is derived so the totals hold whatever the fleet size turns out to
+    be -- the account tier caps sandboxes at 10, so hypotheses run in waves and
+    the run count per hypothesis is what keeps 12,000 sims 12,000 sims.
     """
-    from worker.runner import run_hypothesis
+    per = max(1, round(total_runs / max(1, len(hyps))))
+    out = []
+    for i, h in enumerate(hyps):
+        out.append(dict(h,
+                        hypothesis_id="h_{:05d}".format(i),
+                        start=case["ipp"],
+                        duration_s=case.get("last_contact_s_ago", 4320),
+                        n_runs=per,
+                        seed_base=dt_seed * (i + 1)))
+    return out
 
-    priors = priors or load_priors()
-    rng = rng or np.random.default_rng(1)
-    target = priors["distance_km"]["p50"]
-    base = DEFAULT_DURATION_S
-    report = []
 
-    # The SAME pilot sample is re-run at each base duration. Drawing a fresh
-    # sample every iteration made the measurement noisier than the correction,
-    # and the solver oscillated (2.75 -> 3.99 -> 2.35 -> 3.49 km) instead of
-    # converging, so the chosen base was luck. Fixing the seed makes the
-    # measured median a deterministic function of base_s, which is the only
-    # thing being solved for.
-    seed = int(rng.integers(1 << 30))
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--n", type=int, default=12)
+    ap.add_argument("--model", default=HYPOTHESIS_MODEL)
+    ap.add_argument("--fallback", action="store_true", help="no model call")
+    args = ap.parse_args()
 
-    for _ in range(iterations):
-        hs = plan(ipp, n=n, n_runs=n_runs, priors=priors,
-                  rng=np.random.default_rng(seed), base_s=base)
-        ends = []
-        for h in hs:
-            b, _ = run_hypothesis(h, terrain)
-            ends += [r["endpoint"] for r in b["runs"] if r["endpoint"]]
-        if not ends:
-            break
-        e = np.asarray(ends)
-        d = np.hypot((e[:, 0] - ipp[0]) * terrain.m_lat,
-                     (e[:, 1] - ipp[1]) * terrain.m_lon) / 1000.0
-        med = float(np.median(d))
-        report.append({"base_s": round(base), "median_km": round(med, 3)})
-        if med <= 0.01:
-            break
-        # Distance grows sublinearly with time, so damp the correction.
-        if abs(med - target) / target < 0.03:
-            break                      # within 3%, stop rather than jitter
-        base = float(np.clip(base * (target / med) ** 0.6,
-                             MIN_DURATION_S, MAX_DURATION_S))
-    return base, report
+    case = json.loads((MOCKS / "case.json").read_text())
+    findings = load_local_knowledge()
+    print("local knowledge: {} finding(s){}".format(
+        len(findings), "" if findings else "  (proceeding on terrain + stats)"))
+
+    t0 = time.perf_counter()
+    if args.fallback:
+        hyps, err = fallback_hypotheses(case, args.n), None
+    else:
+        hyps, err = generate(case, n=args.n, model=args.model)
+    print("{} hypotheses in {:.2f}s{}".format(
+        len(hyps), time.perf_counter() - t0,
+        "   ERROR: " + err if err else ""))
+    print()
+    for h in hyps:
+        print("  [{:<18} w={:.2f}] {}".format(h["family"], h["weight"],
+                                              h["description"]))
+        if h.get("rationale"):
+            print("      {}".format(h["rationale"]))
+        if h.get("source", {}).get("kind") == "local":
+            print("      source: {}".format(h["source"]["label"]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

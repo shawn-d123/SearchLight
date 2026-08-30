@@ -1,128 +1,117 @@
-# Daytona fleet timings — measured 30 Aug 2026
+# Daytona fleet timings — MEASURED, Sun 30 Aug 2026
 
-Measured against the live API with `orchestrator/fleet.py`, at the real demo
-shape: 200 hypotheses × 60 seeds = 12,000 simulations.
+Person B. Measured against the live API, not estimated. Everything below is a
+real number except the two rows explicitly marked *extrapolated*.
+
+**Read the first section even if you read nothing else. It changes the plan.**
 
 ---
 
-## The finding that changes the plan
+## 1. The fleet is 10 sandboxes, not 200
 
-**The account caps at 10 GiB of sandbox memory in total.**
+The account tier caps **total CPU at 10** and **total memory at 10 GiB**, across
+all live sandboxes. Not per sandbox — total. So:
 
-The `searchlight-worker` snapshot requests 2 GiB, so the hard ceiling is
-**5 concurrent sandboxes**, not the 200 the spec plans for.
-
-```
-COLD provision: 50 requested -> 5 created, 45 failed
-first error: DaytonaBadRequestError: Failed to create sandbox:
-             Total memory limit exceeded. Maximum allowed: 10GiB.
-```
-
-This is exactly the number the spec said to measure before the day, and it is
-40× smaller than the plan assumed. Everything below is measured at the real
-ceiling rather than the hoped-for one.
-
-### The ceiling is 10, and 10 is achievable
-
-Memory is not the only cap. Halving the snapshot to 1 GiB doubles the fleet to
-10, at which point a SECOND limit binds:
-
-```
-requested 14 @1GiB -> 10 created in 2.4s, 4 refused
-Total CPU limit exceeded. Maximum allowed: 10.
-```
-
-Both limits are 10 -- 10 GiB of memory and 10 vCPU -- so at 1 vCPU per sandbox
-**10 concurrent is the hard ceiling regardless of memory**. There is no
-configuration on this tier that reaches 200.
-
-`sl-worker-1g` (1 vCPU / 1 GiB) is built and is the snapshot to use. It is
-strictly better than the 2 GiB one: twice the fleet, same result.
-
-| snapshot | memory | concurrent | 200 hypotheses | rate |
-|---|---|---|---|---|
-| `searchlight-worker` | 2 GiB | 5 | 13.7 s | 877 sims/s |
-| **`sl-worker-1g`** | **1 GiB** | **10** | **9.3 s** | **1,289 sims/s** |
-
-Both produce `field_area_pct` 14.6%, so halving memory costs nothing.
-
-### What still works
-
-The demo runs fine. Five sandboxes are reused across the 200 hypotheses:
-
-| Stage | Time |
+| worker size | max concurrent |
 |---|---|
-| Cold provision, 5 sandboxes in parallel | **2.5 s** |
-| Dispatch 200 hypotheses → 12,000 sims | **13.7 s** |
-| Teardown | 0.1 s |
-| **Total wall clock** | **16.2 s** |
+| `searchlight-worker`, 1 CPU / **2 GiB** | **5** |
+| `searchlight-worker-1g`, 1 CPU / **1 GiB** | **10** |
 
-877 simulations/second. 11,478 of 12,000 runs returned `ok`; zero fell back to
-local execution. Resulting `field_area_pct` 14.6%, identical to the local run,
-so the sandbox path and the local path agree.
+We use the 1 GiB snapshot. A worker mmaps 33.7 MB of terrain and holds a few
+thousand floats, so 1 GiB is nowhere near tight, and it doubles the fleet.
+10 is the hard ceiling either way, because CPU caps at 10 as well.
 
-Single-sandbox latency, measured separately: **create 0.87 s, upload 0.90 s,
-run 0.55 s.** That create time matches the ~742 ms figure in the independent
-benchmark the spec cites.
+```
+DaytonaBadRequestError: Failed to create sandbox: Total memory limit
+exceeded. Maximum allowed: 10GiB.
+```
 
----
+**This does not change the demo.** 200 hypotheses still run; they run in ~20
+waves over 10 sandboxes instead of all at once. A sandbox is reused by
+uploading a new `job.json`, which costs ~30 ms. Nobody can count sandboxes on
+screen, and the fleet counter shows simulations, not machines.
 
-## What this means for the pitch
-
-**Do not say "200 sandboxes" while 5 are running.** The fleet counter is the
-only thing on screen proving real machines are working, and a judge who asks
-to see the dashboard will see five.
-
-Three honest options:
-
-1. **Say the real number.** "Five isolated sandboxes, each writing and running
-   its own movement model, 12,000 simulations in fourteen seconds." That is a
-   true and impressive sentence, and 877 sims/s is a good number.
-2. **Upgrade the account** if the tier allows it. The error message says
-   "upgrade your ... to increase concurrency limits". That is a spend decision
-   and a time risk on the day.
-3. **Use the 1 GiB snapshot.** Already done -- `sl-worker-1g` doubles the
-   fleet to 10 and cuts the run to 9.3 s. This is free and there is no reason
-   not to. It does not get you past 10.
-
-**The architecture argument is unchanged either way.** It needs ephemeral
-isolated compute at scale, and the honest caveat in the spec already says "not
-this specific vendor". A capacity ceiling on a free tier is not an argument
-against the design.
+**Say the real number on stage.** "Ten isolated machines, two hundred generated
+scripts" is true and is a better sentence than a vague large number a judge
+might probe.
 
 ---
 
-## Reproducing
+## 2. Measured numbers
+
+| | value | notes |
+|---|---|---|
+| Snapshot bake, 5 files, 33.7 MB | ~1.1 s | layers cached; first build is slower |
+| Create **1** sandbox + upload runtime | **1.59 s** | |
+| Create **10** sandboxes in parallel + upload runtime | **2.23 s** | 10/10, no failures |
+| Dispatch 20 batches × 60 runs = **1,200 sims** | **1.59 s** | 1200/1200 ok |
+| First batch back after dispatch | **0.55 s** | this is the beat that must land |
+| Throughput | **~756 sims/s** | across 10 sandboxes |
+| Codegen, 8 scripts in parallel (`gpt-5.4-mini`) | **4.3–7.5 s** | 8/8 compiled and ran |
+| 12,000 sims (200 × 60) | *extrapolated* ~16 s | 20 waves of 10 |
+| 60 codegen calls at 60-way concurrency | *extrapolated* ~8 s | |
+
+Cost is negligible: 10 sandboxes alive for five minutes is well under a dollar
+against $200 + $100 of credit.
+
+---
+
+## 3. Warm pools do not exist on this tier
+
+```
+NotFoundException (404): Cannot GET /api/warm-pools
+```
+
+`daytona.warm_pool` is in the SDK but the endpoint is not deployed for this
+account. **There is no warm-pool measurement to report, because there is no
+warm pool.**
+
+It does not matter. Cold-starting the *entire* fleet takes 2.23 s, and the demo
+does not pay even that:
+
+> **Acquire the fleet when the app loads, hold it, dispatch when you press run.**
+> First trajectories are on screen 0.55 s after the keypress.
+
+`fleet.acquire()` sets `auto_stop_interval=0`. Without it the fleet quietly
+auto-stops on the idle timeout between setup and the pitch, and the first
+dispatch becomes ten machines resuming while the room watches a still map.
+
+---
+
+## 4. Three traps that cost real time
+
+1. **Concurrent execs on ONE sandbox collide.** Firing 12 dispatches at 5
+   sandboxes returns bare `Failed to execute command` with no detail and lost
+   300 of 720 runs. Each sandbox owns a lane and works it sequentially;
+   parallelism comes from the number of sandboxes. Fixed in `fleet.run_all()`.
+
+2. **Deleting a sandbox does not free quota immediately.** A create straight
+   after a delete fails with `Total CPU limit exceeded` while 0 sandboxes are
+   listed. Do not thrash create/delete — acquire once and reuse.
+
+3. **`Image.add_local_file` is broken on Windows** in daytona 0.207.0.
+   `compute_archive_base_path` strips the drive letter but keeps backslashes,
+   so the Dockerfile gets `COPY Users\masca\...` and the Linux builder eats
+   each backslash as an escape:
+
+   ```
+   failed to compute cache key: "/UsersmascaOneDriveDocuments...meta.json": not found
+   ```
+
+   `ensure_snapshot()` chdirs into `data/` and adds files by **bare filename** —
+   no separators, nothing to mangle. Do not "tidy" that back to absolute paths.
+
+   A failed build also leaves a snapshot record in `ERROR` state that blocks the
+   name, and deletion is async — `ensure_snapshot()` polls until the name frees.
+
+---
+
+## 5. How to reproduce
 
 ```bash
-python prep/daytona_ctl.py status      # what exists, what it is costing
-python prep/daytona_ctl.py snapshots   # available images
-python prep/daytona_ctl.py clean       # kill everything tagged searchlight
+python orchestrator/fleet.py --build-snapshot        # bake terrain, 1 GiB
+python orchestrator/fleet.py --smoke                 # 1 sandbox, end to end
+python orchestrator/fleet.py --n 10 --hypotheses 20 --runs 60
+python worker/run_local.py                           # no sandbox, no keys
+python orchestrator/codegen.py --run                 # one generated script
 ```
-
-Cost at these scales is negligible — the 50-sandbox attempt above was about
-$0.02 in practice — but **idle sandboxes bill by the second and nothing on
-screen tells you they are up.** Run `status` after any interrupted run.
-
-### A real incident worth recording
-
-An early fleet run crashed *after* creating sandboxes (a `set` of unhashable
-`Sandbox` objects), leaving 5 running with no handle on them. They were found
-and deleted in under a minute because every sandbox is created with a
-`searchlight` label and `daytona_ctl.py clean` filters on it. Cost: ~$0.014.
-
-That is why the label and the reaper exist, and why `fleet.py` also registers
-an `atexit` sweep.
-
----
-
-## Building a snapshot on Windows — two traps
-
-1. **`add_local_file` / `add_local_dir` mangle path separators.** Passing
-   `data/meta.json` produced `/datameta.json` and the build failed on a missing
-   ref; `prep/_snapshot_data` became `/prep_snapshot_data`. Stage the files in
-   a **top-level directory whose name contains no separator** and pass that.
-   `_snapdata/` exists for this.
-2. **A failed build still occupies the name**, and `snapshot.delete()` is
-   async, so an immediate rebuild under the same name hits
-   `DaytonaConflictError`. Either wait, or build under a new name.

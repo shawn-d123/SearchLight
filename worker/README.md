@@ -2,6 +2,39 @@
 
 Runs **inside a Daytona sandbox**. Nothing here imports anything outside numpy.
 
+## Files
+
+| file | what it does |
+|---|---|
+| `sim.py` | the runtime. Uploaded to each sandbox, runs one script many times |
+| `templates.py` | hand-written fallback script per family — **the demo's floor** |
+| `run_local.py` | runs all five families against `data/` with no sandbox and no keys |
+
+```bash
+python worker/run_local.py            # 5 families, verifies the fallback path
+python worker/run_local.py --family staying_put --runs 5
+python worker/run_local.py --script generated.py
+```
+
+`run_local.py` exits non-zero if any template run fails. Run it after touching
+either file: the fallback is the one path that must never be broken.
+
+## Two things that were wrong and are worth not re-breaking
+
+**`slope.npy` is the slope of the GROUND, not the grade of a trail.** A trail
+crossing a 29° hillside is graded and does not climb at 29°. Feeding terrain
+slope into Tobler put the demo IPP at 0.15 m/s — 0.7 km of travel in 72 minutes
+against a 2.9 km ISRID median.
+
+**Tobler takes the grade along the DIRECTION OF TRAVEL.** Using the terrain
+gradient penalises contouring a hillside and descending a drainage exactly as
+hard as climbing straight up it, which erases the one behaviour the pitch turns
+on. `_pace()` probes 50 m ahead on the actual bearing.
+
+With both fixed, the templates put `route_travelling` at 2.1 km and
+`direction_sampling` at 2.4 km median displacement — bracketing the published
+ISRID p50 of 2.86 km without being fitted to it.
+
 ## Contract
 
 Read `../CONTRACT.md` first. One sandbox holds **one generated movement script**

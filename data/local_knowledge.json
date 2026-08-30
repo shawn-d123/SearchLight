@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-08-30T12:59:48Z",
+  "region": "Santa Catalina Mountains, Arizona",
+  "source": "Parallel Search API, cached. Not called at demo time.",
+  "n_results": 7,
+  "findings": [
+    {
+      "claim": "On the Romero Canyon Trail, hikers often get into trouble within the first few miles after the deceptively flat Catalina State Park bajadas give way to a steeper rocky climb toward Pusch Ridge.",
+      "label": "Coffee or Die, 2022",
+      "url": "https://www.coffeeordie.com/article/santa-catalina-mountains",
+      "confidence": 0.89
+    },
+    {
+      "claim": "The Finger Rock Trail is a documented place where hikers have lost their way in the Santa Catalina Mountains.",
+      "label": "Arizona Daily Star report",
+      "url": "https://tucson.com/news/local/officials-search-for-missing-hiker-third-heat-death-in-tucson/article_475e9acd-135b-54b7-8d7a-ddc7ec4c364a.html",
+      "confidence": 0.94
+    },
+    {
+      "claim": "In the upper Sabino Creek watershed on the Arizona Trail near a saddle overlooking the west fork of Sabino Creek, hikers can mistakenly continue up a wrong trail and end up down in a drainage below.",
+      "label": "The Beckoning trip report",
+      "url": "http://www.thebeckoning.com/explorations/hikes/azt/aztpassage11",
+      "confidence": 0.83
+    },
+    {
+      "claim": "Marshall Gulch Trail #3 descends a cool, shady canyon from the Mount Lemmon area, making Marshall Gulch a specific downhill line a disoriented hiker could follow.",
+      "label": "Coronado NF trail page",
+      "url": "https://www.fs.usda.gov/r03/coronado/recreation/trails/marshall-gulch-trail-3",
+      "confidence": 0.72
+    }
+  ]
+}
