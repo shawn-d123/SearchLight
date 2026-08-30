@@ -30,7 +30,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SNAPSHOT = "searchlight-worker"
+# 1 GiB, NOT the 2 GiB searchlight-worker. Memory comes from the snapshot, and
+# the account caps at 10 GiB / 10 vCPU, so the 2 GiB image silently halves the
+# fleet from 10 to 5 with nothing on screen to say why. Measured: 9.3 s vs
+# 13.7 s for the same 200 hypotheses, identical field. See prep/TIMINGS.md.
+SNAPSHOT = "sl-worker-1g"
 LABEL = {"searchlight": "fleet"}
 WORKER_FILES = ("__init__.py", "terrain.py", "templates.py", "runner.py")
 

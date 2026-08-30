@@ -230,6 +230,32 @@ argument.
 
 ---
 
+## 7b. The fleet ceiling — measured, and it is 10
+
+**The Daytona account caps at 10 concurrent sandboxes, not 200.** Both limits
+bind at 10: 10 GiB of memory and 10 vCPU. There is no configuration on this
+tier that reaches 200.
+
+| snapshot | memory | concurrent | 200 hypotheses | rate |
+|---|---|---|---|---|
+| `searchlight-worker` | 2 GiB | 5 | 13.7 s | 877 sims/s |
+| **`sl-worker-1g`** (default) | **1 GiB** | **10** | **9.3 s** | **1,289 sims/s** |
+
+Both produce an identical field, so the 1 GiB image is strictly better and is
+now the default in `orchestrator/fleet.py`.
+
+**Do not say "200 sandboxes" while 10 are running.** The fleet counter is the
+only on-screen proof that real machines are working. "Ten isolated sandboxes,
+12,000 simulations in nine seconds" is true and good. Full numbers, pitch
+implications and two Windows snapshot traps are in `prep/TIMINGS.md`.
+
+Credit discipline: every sandbox is labelled, torn down in a `finally`, swept
+at exit, and capped by `MAX_SANDBOXES`. **Run `python prep/daytona_ctl.py
+status` after any interrupted run** — idle sandboxes bill by the second and
+nothing on screen tells you they are up.
+
+---
+
 ## 8. What is blocked, and what it costs
 
 1. **Daytona probe never run** — no `DAYTONA_API_KEY`. `prep/daytona_probe.py`
@@ -239,8 +265,17 @@ argument.
    spelling; Python is snake_case (`debian_slim`, `pip_install`).
    *Cost if skipped: fleet size and demo choreography are guesswork.*
 
-2. **`OPENAI_API_KEY` missing** — Person B needs it for the model that writes
-   the movement scripts. **Protect this part**: if you fall back to a fixed
+2. **`OPENAI_API_KEY` missing — THIS IS THE BIGGEST GAP.** Every batch
+   currently returns `generated: false`, i.e. the deterministic template ran.
+   The plumbing is built and tested: `worker/runner.py` accepts a model-written
+   script, validates its output shape, times it out at 10 s, and falls back
+   cleanly. Nothing feeds it.
+
+   B's brief is blunt about why that matters: *"If you fall back to a fixed
+   script with parameters, the Daytona story collapses and the project becomes
+   an animation. Protect this above any feature."* What exists today is the
+   fallback, which must exist. What is missing is the thing that justifies
+   sandboxes at all. **Protect this part**: if you fall back to a fixed
    script with parameters, the whole Daytona story collapses. One model call per
    *sandbox*, not per simulation — 200 sandboxes × 60 seeds = 12,000 sims from
    200 calls.
