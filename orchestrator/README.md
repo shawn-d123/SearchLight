@@ -68,9 +68,35 @@ seconds of still map with the beat that has to land arriving last.
 - **Normalise against a stable ceiling.** Renormalising every update makes the
   field pulse. `model.normalise_for_display` takes a `ceiling`.
 
-## Waiting on Person C
+## Person C's model
 
-`model.build_field` and `model.apply_evidence` still raise `NotImplementedError`.
-The pipeline catches that, says so once, and carries on — trajectories and fleet
-status stream fine, `field_update` and `evidence_applied` simply do not fire yet.
-When those land, nothing here needs changing.
+`build_field` and `apply_evidence` are implemented and wired in. Note the return
+shapes, which are **not** what the old stub docstrings said:
+
+```python
+grid, accumulator   = build_field(batches, bounds, resolution, accumulator=None)
+filtered, payload   = apply_evidence(batches, evidence, bounds=..., ...)
+```
+
+`build_field` is incremental — hand it only the batches it has not seen, along
+with the accumulator it returned last time. Passing the full list back re-adds
+every earlier trajectory on every update. `field_payload()` builds the whole
+CONTRACT section 7 object including `zones` and `field_area_pct`; do not
+hand-roll the base64.
+
+## Merged from a parallel implementation
+
+A second implementation of this directory was built at the same time and is in
+git history. This one won on the overlapping files. Removed as superseded:
+`worker/runner.py`, `worker/terrain.py`, `orchestrator/generate.py`,
+`prep/daytona_ctl.py`, `prep/check_calibration.py`. All recoverable:
+
+```bash
+git show pre-rebase-upstream:worker/runner.py
+```
+
+**One idea from that branch is worth taking back** — sampling hypothesis
+duration from a lognormal calibrated against the published ISRID quantiles,
+rather than using elapsed-time-since-last-contact directly. See the
+`field_area_pct` section of `prep/TIMINGS.md`; it is the difference between a
+2.9% headline and a defensible one.

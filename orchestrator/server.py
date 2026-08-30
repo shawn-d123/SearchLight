@@ -1,4 +1,4 @@
-"""FastAPI + WebSocket server. `ws://localhost:8000/ws`, per CONTRACT.md section 9.
+﻿"""FastAPI + WebSocket server. `ws://localhost:8000/ws`, per CONTRACT.md section 9.
 
 Every message is `{"type": ..., "seq": n, "payload": {...}}`.
 
@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from settings import MOCKS, MAX_SANDBOXES
+from settings import MAX_SANDBOXES, load_case as settings_load_case
 from pipeline import Pipeline
 
 STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
@@ -94,7 +94,7 @@ CONFIG = {"total_runs": 12000, "n_hypotheses": 20, "use_fleet": True}
 
 
 def load_case():
-    return json.loads((MOCKS / "case.json").read_text())
+    return settings_load_case()
 
 
 def _boot_fleet():

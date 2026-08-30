@@ -76,8 +76,11 @@ def main():
     ap.add_argument("--dump", help="write the batch JSON here")
     args = ap.parse_args()
 
+    # Read the IPP directly rather than importing orchestrator/: worker/ must
+    # stay standalone. Accepts both the section 8 intake payload and the older
+    # flat mock.
     case = json.loads((ROOT / "mocks" / "case.json").read_text())
-    start = case["ipp"]
+    start = (case.get("last_known") or {}).get("ipp") or case["ipp"]
     print("IPP {}  duration {}s  {} runs/family".format(
         start, args.duration_s, args.runs))
     print()

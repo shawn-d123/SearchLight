@@ -106,7 +106,52 @@ dispatch becomes ten machines resuming while the room watches a still map.
 
 ---
 
-## 5. How to reproduce
+## 5. End to end, against the real `model/field.py`
+
+With Person C's `build_field` and `apply_evidence` implemented, the whole chain
+runs (`python orchestrator/pipeline.py --hypotheses 20 --total-runs 12000`):
+
+| stage | time |
+|---|---|
+| Acquire 10 sandboxes | 1.8 s |
+| Hypothesis generation (1 call) | 16.0 s | 
+| Codegen (20 calls, parallel) | 4.5 s |
+| **12,000 sims** | **3.9 s** — 12,000/12,000 ok, 19/20 from generated code |
+
+The 20.5 s of model work is `prepare()` and runs before the operator presses
+run, so the keypress-to-first-paths latency is ~1.2 s.
+
+Field accumulates 0.5% → 2.8% → 2.9% of ring area across the run, with named
+zones. Evidence collapses it to 0.9% with 385 of 6,000 runs consistent.
+
+### The 2.9% needs a decision before anyone rehearses it
+
+**`field_area_pct` is 2.9%, and that number is flattered by the duration
+assumption, not earned by terrain.**
+
+The contract defines simulation duration as time elapsed since the last known
+point — 72 minutes here. At hiking pace that bounds travel at ~4 km, so the
+field is necessarily tight inside a 9.55 km ring. A judge who asks "how far can
+someone walk in 72 minutes?" gets to the answer before you do.
+
+The superseded upstream implementation sampled duration from a lognormal with a
+~4 h median, calibrated so the simulated distance distribution reproduced the
+published ISRID quantiles, and reported 14.6%. That is the more defensible
+number, because the whole claim is *"the same published statistics, applied
+through terrain instead of a circle"* — and if the simulated distances do not
+reproduce the published quantiles, the claim is rhetorical.
+
+This is Person C's call (it is a scoring question) but it is Person B's code.
+Recover the calibration approach with:
+
+```bash
+git show pre-rebase-upstream:prep/check_calibration.py
+git show pre-rebase-upstream:orchestrator/hypotheses.py   # plan() + calibrate()
+```
+
+---
+
+## 6. How to reproduce
 
 ```bash
 python orchestrator/fleet.py --build-snapshot        # bake terrain, 1 GiB

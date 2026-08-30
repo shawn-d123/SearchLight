@@ -1,4 +1,4 @@
-"""Daytona fleet control. Claims sandboxes, dispatches one hypothesis each,
+﻿"""Daytona fleet control. Claims sandboxes, dispatches one hypothesis each,
 collects trajectory batches.
 
 The architecture only earns its sandboxes because a MODEL WRITES THE MOVEMENT
@@ -20,7 +20,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from settings import (SNAPSHOT, SNAPSHOT_CPU, SNAPSHOT_MEM_GIB, MAX_SANDBOXES,
                       SB_DIR, SB_SIM, SB_JOB, SB_OUT, SB_DATA,
-                      WORKER_TIMEOUT_S, WORKER_BUDGET_S, WORKER, DATA, MOCKS, key)
+                      WORKER_TIMEOUT_S, WORKER_BUDGET_S, WORKER, DATA, key,
+                      load_case)
 
 sys.path.insert(0, str(WORKER))
 from templates import template_for  # noqa: E402
@@ -326,7 +327,7 @@ class Fleet:
 # --------------------------------------------------------------------------
 
 def _demo_hypotheses(n, runs_per_batch, families):
-    case = json.loads((MOCKS / "case.json").read_text())
+    case = load_case()
     priors = json.loads((DATA / "priors.json").read_text())
     fams = families or list(priors["families"])
     out = []

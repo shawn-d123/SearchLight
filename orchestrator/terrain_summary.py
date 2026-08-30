@@ -1,4 +1,4 @@
-"""Describe the ground around a point, in plain English, from the arrays.
+﻿"""Describe the ground around a point, in plain English, from the arrays.
 
 This is what lets the hypothesis model propose behaviours that exist only
 because something looked at THIS terrain -- "followed the drainage south-east,
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import sys
 
-from settings import DATA, WORKER
+from settings import DATA, WORKER, load_case
 
 sys.path.insert(0, str(WORKER))
 import sim as simmod  # noqa: E402
@@ -120,6 +120,6 @@ def summarise(lat, lon, data_dir=None, out_m=2000.0):
 if __name__ == "__main__":
     import json
     from settings import MOCKS
-    case = json.loads((MOCKS / "case.json").read_text())
+    case = load_case()
     facts, text = summarise(*case["ipp"])
     print(text)

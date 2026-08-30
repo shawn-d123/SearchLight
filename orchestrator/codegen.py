@@ -1,4 +1,4 @@
-"""One model call per SANDBOX writes that hypothesis's movement code.
+﻿"""One model call per SANDBOX writes that hypothesis's movement code.
 
 This is the thing that makes the sandboxes necessary rather than decorative. A
 fixed random walk with different seeds would run twelve thousand times in one
@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse, json, os, re, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from settings import WORKER, key
+from settings import WORKER, key, load_case
 
 sys.path.insert(0, str(WORKER))
 from templates import template_for  # noqa: E402
@@ -36,14 +36,14 @@ family: {family}
 behaviour: {description}
 {rationale}
 
-SIGNATURE — define exactly this, nothing else at module level:
+SIGNATURE â€” define exactly this, nothing else at module level:
 
     def simulate(start_lat, start_lon, duration_s, rng):
         ...
         return [(lat, lon, t), ...]
 
-`rng` is a seeded numpy Generator. Use it for every random draw — rng.normal(mu, sigma),
-rng.uniform(a, b), rng.choice([...]) — and never `random` or a fixed constant, because the
+`rng` is a seeded numpy Generator. Use it for every random draw â€” rng.normal(mu, sigma),
+rng.uniform(a, b), rng.choice([...]) â€” and never `random` or a fixed constant, because the
 same script runs {n_runs} times with different seeds and the runs must differ.
 
 Return a list of (lat, lon, t) with t in seconds from 0, one point every DT_S seconds,
@@ -60,11 +60,11 @@ anything else raises:
     math                        the standard module
     DT_S                        the timestep in seconds ({dt} s)
 
-TERRAIN — Santa Catalina Mountains, Arizona. Elevation 639–2793 m, mean slope 12°,
-max 76°. The subject starts at ({start_lat:.5f}, {start_lon:.5f}), elevation {elev:.0f} m,
-on a {slope:.0f}° slope, {trail:.0f} m from the nearest trail and {water:.0f} m from water.
+TERRAIN â€” Santa Catalina Mountains, Arizona. Elevation 639â€“2793 m, mean slope 12Â°,
+max 76Â°. The subject starts at ({start_lat:.5f}, {start_lon:.5f}), elevation {elev:.0f} m,
+on a {slope:.0f}Â° slope, {trail:.0f} m from the nearest trail and {water:.0f} m from water.
 
-PACE — get this right or the simulation is worthless:
+PACE â€” get this right or the simulation is worthless:
 - On a trail (dist_to_trail < 40 m) a hiker makes about 1.15 m/s. A trail crossing a
   steep hillside is GRADED; the ground slope tells you almost nothing about pace there.
 - Off trail, use Tobler on the grade ALONG THE DIRECTION OF TRAVEL, not the ground
@@ -207,7 +207,7 @@ def main():
     sys.path.insert(0, str(WORKER))
     import sim as simmod
 
-    case = json.loads((MOCKS / "case.json").read_text())
+    case = load_case()
     terrain = simmod.Terrain(DATA)
     lat, lon = case["ipp"]
     r, c = terrain.rc(lat, lon)

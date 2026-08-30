@@ -1,4 +1,4 @@
-"""The run itself: hypotheses -> generated scripts -> fleet -> batches -> field.
+﻿"""The run itself: hypotheses -> generated scripts -> fleet -> batches -> field.
 
 Headless and synchronous on purpose. `server.py` wraps it for the WebSocket;
 this module can be driven from a terminal with no browser, which is how you
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse, json, sys, threading, time
 
-from settings import DATA, MOCKS, MAX_SANDBOXES, ROOT
+from settings import MAX_SANDBOXES, ROOT, load_case
 import hypotheses as hypmod
 from fleet import Fleet
 
@@ -216,7 +216,7 @@ class Pipeline:
         """Person C owns build_field. Until it exists this is a no-op that says
         so once, rather than a crash that takes the run with it."""
         try:
-            from model.field import build_field, normalise_for_display
+            from model.field import build_field, field_payload
         except Exception as e:
             self._warn_once("field_import", "model.field unavailable: {}".format(e))
             return accumulator
@@ -235,12 +235,16 @@ class Pipeline:
         if not new and accumulator is not None:
             return accumulator
 
+        # CONTRACT.md section 10: build_field returns (grid, accumulator). The
+        # accumulator is opaque state owned by model/field.py -- keep handing
+        # back exactly what it gave us, never the grid.
         try:
-            grid = build_field(new, self.case["bounds"],
-                               DISPLAY_RESOLUTION, accumulator=accumulator)
+            grid, accumulator = build_field(new, self.case["bounds"],
+                                            DISPLAY_RESOLUTION,
+                                            accumulator=accumulator)
         except NotImplementedError:
             self._warn_once("field_stub",
-                            "model.build_field is still a stub (Person C, 10:45)"
+                            "model.build_field is still a stub (Person C)"
                             " - no field_update will be sent")
             return accumulator
         except Exception as e:
@@ -252,37 +256,49 @@ class Pipeline:
         # are folded in on the next attempt rather than silently dropped.
         self._folded = folded_to
 
-        import base64
-        import numpy as np
-        disp = normalise_for_display(grid)
-        self.emit("field_update", {
-            "bounds": self.case["bounds"],
-            "resolution": DISPLAY_RESOLUTION,
-            "grid": base64.b64encode(
-                np.ascontiguousarray(disp, dtype=np.float32).tobytes()).decode(),
-            "progress": round(progress, 3),
-            "n_total": self._stats["complete"] + self._stats["failed"],
-            "n_consistent": self._stats["complete"],
-            "ring_radius_m": self.case.get("ring_radius_m"),
-        })
-        return grid
+        try:
+            payload = field_payload(
+                grid, accumulator, self.case["bounds"], DISPLAY_RESOLUTION,
+                self.case.get("ring_radius_m") or 9545.9,
+                progress=progress, terrain=self._zone_terrain())
+        except Exception as e:
+            self._warn_once("payload_error", "field_payload raised: {}".format(e))
+            return accumulator
+        self.emit("field_update", payload)
+        return accumulator
+
+    def _zone_terrain(self):
+        """Elevation array for naming zones. Loaded once; absent is fine."""
+        if not hasattr(self, "_zt"):
+            try:
+                from model.field import load_terrain
+                self._zt = load_terrain()
+            except Exception:
+                self._zt = None
+        return self._zt
 
     def _emit_evidence(self, evidence):
         with self._lock:
             batches = list(self.batches)
+        # Returns (filtered_batches, field payload) -- the payload is already in
+        # the CONTRACT section 7 shape, so it goes on the wire as-is with the
+        # evidence attached alongside it (section 9, `evidence_applied`).
         try:
             from model.field import apply_evidence
-            filtered, n_total, n_consistent = apply_evidence(batches, evidence)
+            _filtered, field = apply_evidence(
+                batches, evidence, bounds=self.case["bounds"],
+                resolution=DISPLAY_RESOLUTION,
+                ring_radius_m=self.case.get("ring_radius_m"))
         except NotImplementedError:
             self._warn_once("evidence_stub",
-                            "model.apply_evidence is still a stub (Person C, 13:30)")
+                            "model.apply_evidence is still a stub (Person C)")
             return
         except Exception as e:
             self._warn_once("evidence_error", "apply_evidence raised: {}".format(e))
             return
-        self.emit("evidence_applied", {"evidence": evidence,
-                                       "n_total": n_total,
-                                       "n_consistent": n_consistent})
+        payload = dict(field)
+        payload["evidence"] = evidence
+        self.emit("evidence_applied", payload)
 
     def _fleet_status_loop(self, stop):
         while not stop.wait(FLEET_STATUS_EVERY_S):
@@ -323,13 +339,19 @@ def main():
         counts[t] = counts.get(t, 0) + 1
         if t in ("log",):
             print("  log: {}".format(p))
+        elif t == "field_update":
+            print("  field {:>3.0f}%  area {:>5.1f}% of ring  n={}  zones: {}"
+                  .format(p["progress"] * 100, p.get("field_area_pct", -1),
+                          p.get("n_total"),
+                          ", ".join("{} {:.0f}%".format(z["name"], z["pct"])
+                                    for z in p.get("zones", []))))
         elif t == "sim_started":
             print("sim_started: {} runs over {} hypotheses, {} sandboxes"
                   .format(p["n_planned"], p["n_hypotheses"], p["n_sandboxes"]))
             for h in p["hypotheses"]:
                 print("   [{}] {}".format(h["family"], h["description"][:88]))
 
-    case = json.loads((MOCKS / "case.json").read_text())
+    case = load_case()
     pipe = Pipeline(emit=emit, n_sandboxes=args.sandboxes,
                     use_model=not args.no_model)
 

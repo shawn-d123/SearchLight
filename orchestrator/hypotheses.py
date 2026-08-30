@@ -1,4 +1,4 @@
-"""One model call before the fan-out proposes hypotheses for THIS incident.
+﻿"""One model call before the fan-out proposes hypotheses for THIS incident.
 
 Without this the hypothesis list is the five family names from
 `data/priors.json` -- generic categories that apply to any lost hiker anywhere,
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import argparse, json, os, sys, time
 
-from settings import DATA, MOCKS, key
+from settings import DATA, key, load_case
 from terrain_summary import summarise
 
 HYPOTHESIS_MODEL = os.environ.get("SEARCHLIGHT_HYPOTHESIS_MODEL", "gpt-5.4")
@@ -38,7 +38,7 @@ Last contact {elapsed_min:.0f} minutes ago. {conditions}
 TERRAIN AROUND THE LAST KNOWN POINT
 {terrain}
 {local}
-FAMILIES — every hypothesis must be tagged with exactly one of these, spelled
+FAMILIES â€” every hypothesis must be tagged with exactly one of these, spelled
 exactly as written. These are published ISRID behaviour categories and their
 weights are fixed; you are proposing variations WITHIN them, not new ones.
 
@@ -48,13 +48,13 @@ Return JSON: {{"hypotheses": [{{"family": ..., "description": ..., "rationale": 
 
 - `description`: one sentence, plain English, what the person did. It goes on
   screen in front of an audience, so name real features from the terrain summary
-  above — the drainage, the ridge, the direction, the trail. "Followed the
+  above â€” the drainage, the ridge, the direction, the trail. "Followed the
   drainage south-east from the junction, path of least resistance on tiring
   legs" is right. "Route travelling behaviour" is useless.
 - `rationale`: one sentence on why this ground makes that plausible. Cite a
   number from the summary.
 - Spread them across the families roughly in proportion to the weights, and make
-  them genuinely different from each other — different directions, different
+  them genuinely different from each other â€” different directions, different
   terrain features. {n} near-identical hypotheses are worth one.
 {local_rule}
 JSON only."""
@@ -83,7 +83,7 @@ def _families_block(families):
 
 def build_prompt(case, terrain_text, n, families, findings):
     if findings:
-        local = ("\nDOCUMENTED LOCAL KNOWLEDGE — real incidents and advisories "
+        local = ("\nDOCUMENTED LOCAL KNOWLEDGE â€” real incidents and advisories "
                  "for this range:\n" +
                  "\n".join("  - {} [{}]".format(f.get("claim", ""),
                                                 f.get("label", "source"))
@@ -94,9 +94,20 @@ def build_prompt(case, terrain_text, n, families, findings):
     else:
         local, local_rule = "", ""
 
-    subject = "{}, category {}, terrain {}.".format(
-        case.get("subject_name", "unknown"),
-        case.get("subject_category", "Hiker"),
+    # The intake payload carries age, experience, clothing and injuries. They
+    # are not decoration: "experienced" and "no injuries" both argue against the
+    # staying-put family, and the model should see them rather than a category.
+    s = case.get("subject") or {}
+    bits = ["{}, category {}".format(case.get("subject_name", "unknown"),
+                                     case.get("subject_category", "hiker"))]
+    for label, k in (("age", "age"), ("experience", "experience"),
+                     ("clothing", "clothing"), ("injuries", "injuries")):
+        if s.get(k):
+            bits.append("{} {}".format(label, s[k]))
+    lk = case.get("last_known") or {}
+    if lk.get("place"):
+        bits.append("last seen at {}".format(lk["place"]))
+    subject = "; ".join(bits) + ". Terrain {}.".format(
         case.get("terrain", "Mountainous"))
 
     return PROMPT.format(
@@ -202,7 +213,7 @@ def main():
     ap.add_argument("--fallback", action="store_true", help="no model call")
     args = ap.parse_args()
 
-    case = json.loads((MOCKS / "case.json").read_text())
+    case = load_case()
     findings = load_local_knowledge()
     print("local knowledge: {} finding(s){}".format(
         len(findings), "" if findings else "  (proceeding on terrain + stats)"))
