@@ -14,6 +14,10 @@ and the search area shrinks.
 
 *A ring cannot respond to evidence.*
 
+> **Picking this up fresh, or handing it to someone?** Read
+> **[HANDOFF.md](HANDOFF.md)** first — decisions already made, numbers that are
+> verified vs provisional, and the traps that would otherwise cost you hours.
+
 ## What is actually being claimed
 
 Not "we predict where missing people are". The field is not empty: Koester's
