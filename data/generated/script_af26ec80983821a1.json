@@ -1,0 +1,10 @@
+{
+  "script": "def move(terrain, start, duration_s, n_runs, seed):\n    import numpy as np\n    rng = np.random.default_rng(seed)\n\n    n_steps = 60\n    dt = duration_s / (n_steps - 1)\n\n    # Initialize points array: (n_runs, n_steps, 3)\n    points = np.empty((n_runs, n_steps, 3), dtype=np.float64)\n\n    # fill all with start lat, lon and time=0 at step 0\n    lat0 = np.full(n_runs, start[0], dtype=np.float64)\n    lon0 = np.full(n_runs, start[1], dtype=np.float64)\n    points[:, 0, 0] = lat0\n    points[:, 0, 1] = lon0\n    points[:, 0, 2] = 0\n\n    # Hypothesis: staying_put = no movement, just remain at start lat/lon for all times\n    # Set time non-decreasing\n    for i in range(1, n_steps):\n        points[:, i, 0] = lat0\n        points[:, i, 1] = lon0\n        points[:, i, 2] = dt * i\n\n    # Check inside terrain box for each run at all steps (all same points actually)\n    # So just check start point once:\n    ok = terrain.inside(lat0, lon0)\n\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "staying_put",
+    "description": "Stopped to rest just off the trail near the ridge for breakfast or water.",
+    "rationale": "The start time and proximity to the trail favor an early rest stop.",
+    "model": "gpt-4.1-mini"
+  }
+}

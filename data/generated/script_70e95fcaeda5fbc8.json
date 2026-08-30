@@ -1,0 +1,10 @@
+{
+  "script": "import numpy as np\ndef move(terrain, start, duration_s, n_runs, seed):\n    rng = np.random.default_rng(seed)\n    points = np.zeros((n_runs, 60, 3), dtype=float)\n    # Clamp start inside terrain box\n    start_lat, start_lon = terrain.clamp(start[0], start[1])\n    points[:, 0, 0] = start_lat\n    points[:, 0, 1] = start_lon\n    points[:, 0, 2] = 0.0\n    # Staying put means no movement, just time advances linearly from 0 to min(duration_s, 59)\n    tvals = np.linspace(0, duration_s, 60)\n    points[:, :, 0] = start_lat\n    points[:, :, 1] = start_lon\n    points[:, :, 2] = tvals\n    # Check inside terrain box for all points (all same location)\n    ok = terrain.inside(points[:, 0, 0], points[:, 0, 1])\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "staying_put",
+    "description": "Paused at a shaded spot among ridge trees to check equipment.",
+    "rationale": "Experienced hikers often pause soon after starting near familiar wooded ridgelines.",
+    "model": "gpt-4.1-mini"
+  }
+}

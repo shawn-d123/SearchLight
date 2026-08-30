@@ -1,0 +1,48 @@
+{
+  "hypotheses": [
+    {
+      "family": "route_travelling",
+      "description": "Followed the ridgeline southwest, descending toward lower elevation.",
+      "rationale": "The landform is a ridge with the steepest descent to the southwest, offering a natural travel corridor and likely trail route."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Travelled toward the nearest trail 67 m away to the north.",
+      "rationale": "With a trail only 67 meters away, an experienced hiker would likely seek established routes."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Headed southwest off the ridge toward lower terrain hoping to find a safer or more navigable route.",
+      "rationale": "The terrain's steepest descent is southwest, and a hiker navigating challenging slopes might sample that direction."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Moved westward along intermediate slopes where the fraction over 30 degrees decreases, seeking easier travel.",
+      "rationale": "Mean slope is 21.9 degrees, but westward slopes may offer less steepness for easier passage compared to areas over 30 degrees."
+    },
+    {
+      "family": "backtracking",
+      "description": "Returned northeast up the ridge toward the Marshall Gulch trailhead to reorient.",
+      "rationale": "Being on a ridge close to the trailhead, an experienced hiker might backtrack to a known point if uncertain."
+    },
+    {
+      "family": "view_enhancing",
+      "description": "Climbed locally higher points along the ridge for better views to orient or spot landmarks.",
+      "rationale": "Ridges provide elevated vantage points, which experienced hikers may use for navigation."
+    },
+    {
+      "family": "staying_put",
+      "description": "Stopped at an open area on the ridge with good visibility to wait for help or assess surroundings.",
+      "rationale": "Ridges offer open spaces and views that make the subject more visible and provide orientation opportunities."
+    },
+    {
+      "family": "staying_put",
+      "description": "Sat at a sheltered area just below the ridgeline on the lee (northeast) side to avoid wind exposure.",
+      "rationale": "Ridges, especially at 2450 m elevation, can be windy; a sheltered area just below the crest offers protection."
+    }
+  ],
+  "model": "gpt-4.1",
+  "cached": false,
+  "elapsed_s": 4.98,
+  "dropped": 0
+}

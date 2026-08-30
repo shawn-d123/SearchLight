@@ -1,0 +1,10 @@
+{
+  "script": "def move(terrain, start, duration_s, n_runs, seed):\n    import numpy as np\n    rng = np.random.default_rng(seed)\n    # time array shape (60,), linearly spaced from 0 to duration_s\n    times = np.linspace(0, duration_s, 60)\n    # Initialize output array: (n_runs, 60, 3)\n    points = np.empty((n_runs, 60, 3), dtype=float)\n    # Fill latitude, longitude with start repeated, seconds_elapsed with times broadcast\n    points[:, :, 0] = start[0]\n    points[:, :, 1] = start[1]\n    points[:, :, 2] = times\n\n    # All points are fixed, subject stationary at start position.\n    # Check if start is inside terrain box\n    ok = terrain.inside(start[0]*np.ones(n_runs), start[1]*np.ones(n_runs))\n\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "staying_put",
+    "description": "Stopped at an open area on the ridge with good visibility to wait for help or assess surroundings.",
+    "rationale": "Ridges offer open spaces and views that make the subject more visible and provide orientation opportunities.",
+    "model": "gpt-4.1-mini"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "script": "def move(terrain, start, duration_s, n_runs, seed):\n    import numpy as np\n    rng = np.random.default_rng(seed)\n    steps = 60\n    dt = duration_s / (steps - 1)\n    points = np.empty((n_runs, steps, 3), dtype=float)\n    lat0 = start[0]\n    lon0 = start[1]\n    points[:, 0, 0] = lat0\n    points[:, 0, 1] = lon0\n    points[:, 0, 2] = 0\n    for i in range(1, steps):\n        points[:, i, 0] = lat0\n        points[:, i, 1] = lon0\n        points[:, i, 2] = i * dt\n    ok = terrain.inside(points[:, -1, 0], points[:, -1, 1])\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "staying_put",
+    "description": "Remained at a scenic overlook just off the ridge to watch sunrise.",
+    "rationale": "The early time and ridge location offer excellent sunrise viewing opportunities.",
+    "model": "gpt-4.1-mini"
+  }
+}

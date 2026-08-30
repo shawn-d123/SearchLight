@@ -1,0 +1,148 @@
+{
+  "hypotheses": [
+    {
+      "family": "route_travelling",
+      "description": "Followed the main trail southwest from Marshall Gulch trailhead along the ridge.",
+      "rationale": "The last known point is near a ridge and a trail is only 67 m away, making trail-following likely."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Took a secondary trail diverging north along the ridge crest.",
+      "rationale": "Multiple trails in this zone and ridge positions attract experienced hikers."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Descended southwest off the ridge toward lower elevations via the steepest slope.",
+      "rationale": "Steepest local descent is southwest and may entice a hiker heading for new scenery."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Followed a faint user path toward the nearest water 890 m away, heading south.",
+      "rationale": "Proximity of water to the south could draw the subject seeking a break."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Traversed laterally west along the ridge to explore viewpoints.",
+      "rationale": "The area offers several ridge-based viewpoints attractive to hikers."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Moved east on the ridge heading for connecting high points.",
+      "rationale": "Ridge walking east offers experienced hikers good visibility and terrain variation."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Moved north to connect with other nearby trailheads.",
+      "rationale": "Experienced hikers sometimes link multiple trailheads on extended hikes."
+    },
+    {
+      "family": "route_travelling",
+      "description": "Dropped south toward the next drainage, following the landform contours.",
+      "rationale": "The local relief and available slopes facilitate cross-ridge transitions."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Descended the 21.9-degree slope southwest to sample terrain off-trail.",
+      "rationale": "The dominant and moderately steep slope is likely to attract attention off-trail."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Traveled northeast off trail along a less steep section of the ridge.",
+      "rationale": "The ridge continues northeast with variable slope, offering a navigable route."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Veered due south toward steep ground as a navigational experiment.",
+      "rationale": "217% fraction of terrain over 30 degrees may challenge or attract an experienced hiker."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Headed directly west across the ridge\u2019s width to evaluate cross-slope travel.",
+      "rationale": "Crossing the ridge at its broadest point may be appealing to experienced explorers."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Headed along animal trails southeast along the ridge spur.",
+      "rationale": "Ridge spurs in the area present defined but unofficial routes for exploration."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Took a compass bearing southwest towards visible peaks or landmarks.",
+      "rationale": "The mean slope and ridge setting facilitate direct skyline navigation."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Followed a game trail north, sampling terrain toward the closest saddle.",
+      "rationale": "Experienced hikers sometimes seek natural passes that ridgelines offer."
+    },
+    {
+      "family": "direction_sampling",
+      "description": "Headed southeast along contour to maintain elevation.",
+      "rationale": "Experienced hikers in mountainous terrain often contour to avoid elevation loss."
+    },
+    {
+      "family": "backtracking",
+      "description": "Returned east back toward the Marshall Gulch trailhead.",
+      "rationale": "Possible reconsideration after a short exploration from the trailhead, given proximity."
+    },
+    {
+      "family": "backtracking",
+      "description": "Retraced route north along the last trail walked.",
+      "rationale": "Missing individuals sometimes double back if uncertain about route or missed landmarks."
+    },
+    {
+      "family": "backtracking",
+      "description": "Backtracked west along the ridge crest seeking identifiable terrain.",
+      "rationale": "Experienced hikers may return to known features if uncertain of location."
+    },
+    {
+      "family": "backtracking",
+      "description": "Turned around after approaching steep ground, heading back up the slope.",
+      "rationale": "Encountering daunting 30+ degree slopes could provoke a reversal."
+    },
+    {
+      "family": "view_enhancing",
+      "description": "Ascended the highest local ridge point northeast of the trailhead for a view.",
+      "rationale": "Experienced hikers may seek local high points for orientation; ridge terrain facilitates this."
+    },
+    {
+      "family": "view_enhancing",
+      "description": "Moved south along the ridge crest to reach a knob or rocky outcrop.",
+      "rationale": "Ridges often feature rocky knobs visible from the trailhead, appealing for views."
+    },
+    {
+      "family": "view_enhancing",
+      "description": "Climbed a prominent boulder field near the trail for panoramic photography.",
+      "rationale": "Boulder-studded ridgelines offer accessible viewpoints just off trail."
+    },
+    {
+      "family": "view_enhancing",
+      "description": "Went west to an exposed ridge section for a clear look at terrain below.",
+      "rationale": "The ridge topography offers clearings with extensive sightlines."
+    },
+    {
+      "family": "staying_put",
+      "description": "Stopped to rest just off the trail near the ridge for breakfast or water.",
+      "rationale": "The start time and proximity to the trail favor an early rest stop."
+    },
+    {
+      "family": "staying_put",
+      "description": "Paused at a shaded spot among ridge trees to check equipment.",
+      "rationale": "Experienced hikers often pause soon after starting near familiar wooded ridgelines."
+    },
+    {
+      "family": "staying_put",
+      "description": "Stopped at an open area on the ridge to wait for companions or review maps.",
+      "rationale": "Ridge openings provide natural congregation or navigation points."
+    },
+    {
+      "family": "staying_put",
+      "description": "Remained at a scenic overlook just off the ridge to watch sunrise.",
+      "rationale": "The early time and ridge location offer excellent sunrise viewing opportunities."
+    }
+  ],
+  "model": "gpt-4.1",
+  "cached": false,
+  "elapsed_s": 11.45,
+  "dropped": 0
+}

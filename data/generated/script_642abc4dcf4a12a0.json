@@ -1,0 +1,10 @@
+{
+  "script": "import numpy as np\n\ndef move(terrain, start, duration_s, n_runs, seed):\n    rng = np.random.default_rng(seed)\n    n_steps = 60\n    dt = duration_s / (n_steps - 1)\n    lat0, lon0 = start\n    points = np.empty((n_runs, n_steps, 3), dtype=np.float64)\n    points[:, 0, 0] = lat0\n    points[:, 0, 1] = lon0\n    points[:, 0, 2] = 0.0\n    # Staying put: same lat/lon at all times\n    points[:, 1:, 0] = lat0\n    points[:, 1:, 1] = lon0\n    seconds = np.linspace(0, duration_s, n_steps)\n    points[:, :, 2] = seconds\n\n    ok = terrain.inside(points[:, -1, 0], points[:, -1, 1])\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "staying_put",
+    "description": "Stopped at an open area on the ridge to wait for companions or review maps.",
+    "rationale": "Ridge openings provide natural congregation or navigation points.",
+    "model": "gpt-4.1-mini"
+  }
+}

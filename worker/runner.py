@@ -111,7 +111,31 @@ def _check_output(points, ok, n_runs, points_out):
     return points, ok
 
 
-def run_hypothesis(h, terrain, script=None, timeout_s=TIMEOUT_S):
+def _distance_sane(points, ok, start, terrain, max_median_km):
+    """Reject a generated script whose walkers run away.
+
+    Shape validation is not enough. Scripts that satisfy every structural rule
+    still invented their own pace, and the fleet-wide p95 came out at 18 km
+    against a published 9.55 -- the tail was wrong even though p25/p50/p75 were
+    close.
+
+    The bound is deliberately loose (a MULTIPLE of the published p95, applied to
+    the batch MEDIAN) because families legitimately differ: staying_put should
+    barely move and route_travelling should travel. This catches runaway
+    scripts, not long ones.
+    """
+    import numpy as np
+    if max_median_km <= 0 or not ok.any():
+        return True, 0.0
+    end = points[ok][:, -1, :2]
+    d = np.hypot((end[:, 0] - start[0]) * terrain.m_lat,
+                 (end[:, 1] - start[1]) * terrain.m_lon) / 1000.0
+    med = float(np.median(d))
+    return med <= max_median_km, med
+
+
+def run_hypothesis(h, terrain, script=None, timeout_s=TIMEOUT_S,
+                   max_median_km=0.0):
     """Execute one hypothesis. Returns (batch, note).
 
     `script` is model-written Python defining `move(terrain, start, duration_s,
@@ -136,6 +160,12 @@ def run_hypothesis(h, terrain, script=None, timeout_s=TIMEOUT_S):
                                 spec["n_runs"], spec["seed_base"])
             points, ok = _check_output(points, ok, spec["n_runs"],
                                        len(points[0]) if len(points) else 0)
+            sane, med = _distance_sane(points, ok, spec["start"], terrain,
+                                       max_median_km)
+            if not sane:
+                raise ValueError(
+                    "median endpoint {:.1f} km exceeds the {:.1f} km sanity "
+                    "bound".format(med, max_median_km))
             generated = True
             if not guard.ok:
                 note = "ran untimed: no SIGALRM on this platform"

@@ -1,0 +1,10 @@
+{
+  "script": "def move(terrain, start, duration_s, n_runs, seed):\n    import numpy as np\n    steps = 60\n    dt = duration_s / (steps - 1)\n    rng = np.random.default_rng(seed)\n\n    lat = np.full(n_runs, start[0])\n    lon = np.full(n_runs, start[1])\n    time = 0.0\n\n    points = np.empty((n_runs, steps, 3), dtype=float)\n    points[:, 0, 0] = lat\n    points[:, 0, 1] = lon\n    points[:, 0, 2] = 0.0\n\n    ok = np.full(n_runs, True, dtype=bool)\n\n    # We move west: bearing = 270 deg = 3*pi/2 rad\n    bearing = 3 * np.pi / 2\n\n    for i in range(1, steps):\n        elev0 = terrain.elev(lat, lon)\n        # move one step in direction bearing, distance dt * speed\n        # speed depends on slope between current and next point\n\n        # initial guess: move cell_m meters west\n        d_horiz = terrain.cell_m\n        # compute next coordinates stepped west by cell_m\n        lat_next, lon_next = terrain.offset(lat, lon, bearing, d_horiz)\n\n        elev1 = terrain.elev(lat_next, lon_next)\n        d_elev = elev1 - elev0\n\n        # Compute walking speed with Tobler's function\n        speed = terrain.tobler_speed_ms(d_elev, d_horiz)\n        # Distance covered in dt seconds\n        dist = speed * dt\n\n        # Recalculate next locations with actual dist to move in bearing\n        lat_next, lon_next = terrain.offset(lat, lon, bearing, dist)\n\n        # Update only for runs still inside terrain\n        inside_mask = terrain.inside(lat_next, lon_next)\n        ok &= inside_mask\n\n        # For runs leaving box, clamp their position so we do not go outside\n        lat_next, lon_next = terrain.clamp(lat_next, lon_next)\n\n        lat, lon = lat_next, lon_next\n        time += dt\n        points[:, i, 0] = lat\n        points[:, i, 1] = lon\n        points[:, i, 2] = time\n\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "direction_sampling",
+    "description": "Headed directly west across the ridge\u2019s width to evaluate cross-slope travel.",
+    "rationale": "Crossing the ridge at its broadest point may be appealing to experienced explorers.",
+    "model": "gpt-4.1-mini"
+  }
+}

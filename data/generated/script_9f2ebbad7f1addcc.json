@@ -1,0 +1,16 @@
+{
+  "script": "import numpy as np\n\ndef move(terrain, start, duration_s, n_runs, seed):\n    rng = np.random.default_rng(seed)\n    n_steps = 60\n    dt = duration_s / (n_steps - 1)  # seconds between points\n\n    # Precompute constants\n    deg21_9_rad = np.deg2rad(21.9)\n    bearing_rad = np.deg2rad(225)  # southwest = 225 degrees\n\n    # Allocate output array\n    points = np.empty((n_runs, n_steps, 3), dtype=np.float64)\n    # Initialize time column\n    times = np.linspace(0, duration_s, n_steps)\n\n    # Start points\n    lat0 = np.full(n_runs, start[0], dtype=np.float64)\n    lon0 = np.full(n_runs, start[1], dtype=np.float64)\n    points[:, 0, 0] = lat0\n    points[:, 0, 1] = lon0\n    points[:, 0, 2] = 0.0\n\n    # Model parameters aimed to match distribution:\n    # Average horizontal speed ~1.1 m/s downhill on 21.9 deg slope\n    # We'll add per-run random speed multiplier ~U(0.85,1.15) to spread outcomes\n\n    speed_multiplier = rng.uniform(0.85, 1.15, size=n_runs)\n    # Horizontal travel per dt, set so that median final distance ~2.86 km over duration_s\n    # Target median hor dist ~2860 m, total hor dist = speed * duration_s\n    # => speed_m_s_med = 2860 / duration_s\n    speed_m_s_med = 2860 / duration_s\n    # Adjust speed for each run\n    speed_m_s = speed_m_s_med * speed_multiplier\n\n    # Because slope is fixed (21.9 deg), elevation change rate:\n    vert_speed_m_s = np.tan(deg21_9_rad) * speed_m_s\n\n    # Compute displacements per step\n    dist_step = speed_m_s * dt  # horizontal metres per step, shape (n_runs,)\n    d_elev_step = vert_speed_m_s * dt  # elevation change per step\n\n    # Convert horizontal metres step to degrees lat/lon for each run\n    # metres per degree lat/lon (arrays really scalar here)\n    m_per_deg_lat = terrain.m_lat\n    m_per_deg_lon = terrain.m_lon\n\n    # Offsets per step in degrees\n    dlat_step = dist_step * np.cos(bearing_rad) / m_per_deg_lat\n    dlon_step = dist_step * np.sin(bearing_rad) / m_per_deg_lon\n\n    # Initialize current positions and elapsed times\n    lat_cur = lat0.copy()\n    lon_cur = lon0.copy()\n    t_cur = np.zeros(n_runs, dtype=np.float64)\n\n    for i in range(1, n_steps):\n        # Move position\n        lat_cur += dlat_step\n        lon_cur += dlon_step\n\n        # Clamp inside terrain\n        lat_cur, lon_cur = terrain.clamp(lat_cur, lon_cur)\n\n        # Update time\n        t_cur += dt\n\n        points[:, i, 0] = lat_cur\n        points[:, i, 1] = lon_cur\n        points[:, i, 2] = t_cur\n\n    # Check inside terrain box for all points, mark ok False for any out-of-box anytime\n    inside_all = terrain.inside(points[:, :, 0], points[:, :, 1])\n    ok = inside_all.all(axis=1)\n\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "direction_sampling",
+    "description": "Descended the 21.9-degree slope southwest to sample terrain off-trail.",
+    "rationale": "The dominant and moderately steep slope is likely to attract attention off-trail.",
+    "model": "gpt-4.1-mini",
+    "distance_km": {
+      "p25": 1.6307,
+      "p50": 2.8564,
+      "p75": 6.2551,
+      "p95": 9.5459
+    }
+  }
+}

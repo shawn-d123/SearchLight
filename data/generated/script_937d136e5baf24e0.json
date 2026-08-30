@@ -1,0 +1,10 @@
+{
+  "script": "def move(terrain, start, duration_s, n_runs, seed):\n    import numpy as np\n    rng = np.random.default_rng(seed)\n\n    n_steps = 60\n    dt = duration_s / (n_steps - 1)\n\n    points = np.empty((n_runs, n_steps, 3), dtype=float)\n    lat = np.full(n_runs, start[0], dtype=float)\n    lon = np.full(n_runs, start[1], dtype=float)\n    t = np.linspace(0, duration_s, n_steps)\n\n    points[:, 0, 0] = lat\n    points[:, 0, 1] = lon\n    points[:, 0, 2] = 0\n\n    # Backtracking assumed north along last trail walked.\n    # Step direction: north (bearing = 0 rad).\n    bearing = 0\n\n    # Compute offset in degrees for 1 meter north:\n    m_lat = terrain.m_lat\n    m_lon = terrain.m_lon\n\n    for i in range(1, n_steps):\n        elev0 = terrain.elev(lat, lon)\n        elev1 = terrain.elev(lat + 1 / m_lat, lon)  # 1 deg north offset approx for slope calc\n\n        d_elev = elev1 - elev0\n        d_horiz = 1  # approx 1 meter step horizontal for Toebler speed input (will rescale)\n\n        speed_ms = terrain.tobler_speed_ms(d_elev, 1)  # speed for 1m horiz step\n        step_m = speed_ms * dt\n\n        # Move step_m meters north\n        dlat = step_m / m_lat\n        dlon = np.zeros_like(dlat)\n        lat_new = lat + dlat\n        lon_new = lon + dlon\n\n        # Clamp to terrain box\n        lat_new, lon_new = terrain.clamp(lat_new, lon_new)\n\n        lat = lat_new\n        lon = lon_new\n\n        points[:, i, 0] = lat\n        points[:, i, 1] = lon\n        points[:, i, 2] = t[i]\n\n    ok = terrain.inside(points[:, -1, 0], points[:, -1, 1])\n    return points, ok",
+  "model": "gpt-4.1-mini",
+  "hypothesis": {
+    "family": "backtracking",
+    "description": "Retraced route north along the last trail walked.",
+    "rationale": "Missing individuals sometimes double back if uncertain about route or missed landmarks.",
+    "model": "gpt-4.1-mini"
+  }
+}
