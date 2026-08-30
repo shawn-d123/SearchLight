@@ -242,6 +242,10 @@ export function createMockSource(): Source {
     // to do with a live witness report.
     sendEvidence() {},
 
+    // No microphone behind the mock producer. Silently ignored so a mic button
+    // left enabled in mock mode does nothing rather than throwing.
+    sendTranscript() {},
+
     replayTranscript() {
       timeline.cancel();
       timeline = new Timeline();

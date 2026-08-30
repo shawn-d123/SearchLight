@@ -143,6 +143,10 @@ export function createWsSource(url = WS_URL): Source {
       send("replay_transcript", {});
     },
 
+    sendTranscript(payload) {
+      send("transcript_partial", payload);
+    },
+
     sendEvidence(evidence) {
       send("evidence", evidence);
     },

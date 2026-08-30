@@ -199,18 +199,26 @@ def extract(transcript, model=EXTRACT_MODEL, oai=None, priors=None):
 
 
 def field_sequence(payload):
-    """Flatten to (path, label, value) in card order, skipping what is absent.
+    """One PARTIAL EXTRACTION PAYLOAD per field, in card order.
 
-    The server emits these one at a time. Fields the caller never mentioned are
-    dropped rather than shown blank -- an empty row reads as a bug, and a
-    missing row reads as a caller who did not say.
+    CONTRACT.md section 9: `extraction_update` carries a partial extraction
+    payload, not a flat descriptor. So a field arrives as
+
+        {"subject": {"name": "Alex Morgan"}}
+
+    and the frontend merges one level down. An earlier version emitted
+    {"section": ..., "field": ..., "value": ...}, which the reducer would have
+    merged as three top-level keys and rendered as nothing.
+
+    Fields the caller never mentioned are dropped rather than sent empty: a
+    blank row reads as a bug, a missing row reads as a caller who did not say.
     """
     out = []
     for section, field in FIELD_ORDER:
         value = (payload.get(section) or {}).get(field)
         if value in (None, "", []):
             continue
-        out.append({"section": section, "field": field, "value": value})
+        out.append({section: {field: value}})
     return out
 
 

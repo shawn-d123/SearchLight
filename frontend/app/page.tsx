@@ -184,6 +184,7 @@ export default function Page() {
             transcriptFinal={sl.transcriptFinal}
             extraction={sl.extraction}
             incident={sl.caseView?.incident ?? "SL-2084"}
+            onTranscript={sl.sendTranscript}
             onBegin={advance}
             onReplay={replayTranscript}
           />

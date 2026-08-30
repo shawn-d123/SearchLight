@@ -39,6 +39,14 @@ export interface Source {
    * the field that has just been built, which only the reducer knows.
    */
   sendEvidence(evidence: Record<string, unknown>): void;
+  /**
+   * Words from the live microphone, going UP the socket.
+   *
+   * Live relays them to every client and, on is_final, runs the extraction --
+   * which must happen server-side, because a browser holding the OpenAI key is
+   * a published key. Mock has no microphone and ignores it.
+   */
+  sendTranscript(payload: { text: string; is_final: boolean }): void;
   on(fn: Listener): () => void;
   onStatus(fn: (s: SourceStatus, detail?: string) => void): () => void;
 }

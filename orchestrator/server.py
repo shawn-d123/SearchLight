@@ -239,8 +239,13 @@ def _read_json(path, default=None):
         return default
 
 
-async def _play_intake():
-    """Stream the recorded call, then the fields it yields."""
+async def _play_intake(source="fallback"):
+    """Stream the recorded call, then the REAL fields it yields.
+
+    `source` is carried into case_loaded so the UI can distinguish a recorded
+    replay from a live microphone. Recorded audio with a live extraction is
+    entirely honest; presenting it as a live call is not.
+    """
     try:
         transcript = (MOCKS / "transcript.txt").read_text(encoding="utf-8").strip()
     except Exception:
@@ -249,23 +254,61 @@ async def _play_intake():
     words = transcript.split()
     ticks = (len(words) + TRANSCRIPT_WORDS_PER_TICK - 1) // TRANSCRIPT_WORDS_PER_TICK
 
-    extraction = _read_json(MOCKS / "extraction.json", {}) or {}
+    # THE EXTRACTION IS REAL. This previously read mocks/extraction.json and
+    # streamed it on a timer, which is a canned card pretending to be a live
+    # extraction -- the one thing in this demo a judge can catch by asking to
+    # speak into the microphone themselves.
+    #
+    # The model call runs CONCURRENTLY with the transcript replay. It takes
+    # about two seconds against a call that takes six to speak, so it lands
+    # well before the fields are due and Person A's choreography is unchanged:
+    # word groups at TRANSCRIPT_TICK_S, fields starting partway through.
+    #
+    # On any failure extract() returns the committed mock tagged
+    # source="fallback", so the demo continues and nothing claims to be live
+    # that is not.
+    import extract as extractor
+    # Started, NOT awaited. Awaiting here delayed the first transcript frame by
+    # the length of the model call and pushed the fields to the very END of the
+    # call -- measured +6.10s, against a design where they resolve partway
+    # through. The transcript takes about six seconds to speak and the call
+    # about two to extract, so kicking it off here and collecting it when the
+    # first field is due hides it completely.
+    extract_task = asyncio.create_task(
+        asyncio.to_thread(extractor.extract, transcript))
     # Fields resolve one at a time, and resolution STARTS PARTWAY THROUGH the
     # call rather than after it. A real streaming extraction does not wait for
     # the caller to stop talking, and a report that sits empty for the whole
     # call gives the presenter nothing to point at.
-    steps = [
-        {"subject": {"name": (extraction.get("subject") or {}).get("name")}},
-        {"subject": extraction.get("subject")},
-        {"last_known": extraction.get("last_known")},
-        {"assessment": extraction.get("assessment"),
-         "confidence": extraction.get("confidence")},
-    ]
-    steps = [s for s in steps if any(v for v in s.values())]
-
     spoken = ticks * TRANSCRIPT_TICK_S
+    extraction = None
+    steps = []
+    every = 0.25          # replaced once the real step count is known
+
+    async def collect():
+        """Await the extraction once, the first time a field is due."""
+        nonlocal extraction, steps, every
+        if extraction is not None:
+            return
+        extraction, err = await extract_task
+        if err:
+            hub.emit_threadsafe("log", {"step": "extraction", "error": err})
+        if source != "live":
+            extraction["source"] = source
+        built = [
+            {"subject": {"name": (extraction.get("subject") or {}).get("name")}},
+            {"subject": extraction.get("subject")},
+            {"last_known": extraction.get("last_known")},
+            {"assessment": extraction.get("assessment"),
+             "confidence": extraction.get("confidence")},
+        ]
+        steps = [b for b in built if any(v for v in b.values())]
+        # Pacing depends on how many fields actually resolved, which is only
+        # known now. Computing it before collect() used len([]) and every step
+        # would have fired in the same tick.
+        every = (spoken * 0.5 + 0.7) / max(1, len(steps))
+
     first_step = spoken * 0.5
-    every = (spoken * 0.5 + 0.7) / max(1, len(steps))
 
     elapsed = 0.0
     next_step = 0
@@ -276,15 +319,30 @@ async def _play_intake():
             "is_final": upto >= len(words)})
         await asyncio.sleep(TRANSCRIPT_TICK_S)
         elapsed += TRANSCRIPT_TICK_S
+        if elapsed >= first_step:
+            await collect()
         while (next_step < len(steps)
                and elapsed >= first_step + next_step * every):
             hub.emit_threadsafe("extraction_update", steps[next_step])
             next_step += 1
 
     # Anything the loop did not reach (a very short transcript).
+    await collect()
     for step in steps[next_step:]:
         hub.emit_threadsafe("extraction_update", step)
         await asyncio.sleep(every)
+
+    # The pipeline needs ipp, ring_radius_m and elapsed at the top level.
+    case = dict(extraction)
+    last = extraction.get("last_known") or {}
+    if last.get("ipp"):
+        case["ipp"] = last["ipp"]
+        case["ring_radius_m"] = (extraction.get("assessment") or {}).get(
+            "ring_radius_m")
+        case["last_contact_s_ago"] = int(last.get("elapsed_min") or 72) * 60
+        base = settings_load_case() or {}
+        case.setdefault("bounds", base.get("bounds"))
+        hub.emit_threadsafe("case_loaded", case)
 
 
 def _emit_validation():
@@ -353,6 +411,15 @@ async def handle(msg):
             threading.Thread(target=pipeline._emit_evidence, args=(payload,),
                              daemon=True).start()
 
+    elif t == "replay_transcript":
+        # The T key, and the mandatory fallback. Person A's wsSource sends this
+        # and the server ignored it, so in live mode the intake screen produced
+        # nothing at all. Replays the committed transcript at speaking pace and
+        # runs a REAL extraction on it -- recorded audio, live extraction, and
+        # the payload says source="fallback" so nothing can present it as a
+        # live call.
+        _start_scripted("intake")
+
     elif t == "transcript_partial":
         # Interim words are relayed so every client sees the same call as it is
         # spoken. Only the FINAL transcript is worth an extraction call.
@@ -368,7 +435,15 @@ async def handle(msg):
         hub.emit_threadsafe("pong", {"t": time.time()})
 
 
-def _run_extraction(transcript):
+
+
+def _run_extraction(transcript, source="live"):
+    """The LIVE MICROPHONE path.
+
+    _play_intake handles the recorded replay with its own choreography; this is
+    what a real spoken call goes through. Same extraction, no scripted timing,
+    because the words arrive when the caller says them.
+    """
     """Transcript -> report card, one field at a time.
 
     The stagger is deliberate and is the visual payoff of the transcription:
@@ -379,6 +454,9 @@ def _run_extraction(transcript):
 
     hub.state = "intake"
     payload, err = extractor.extract(transcript)
+    # A recorded replay is never dressed up as a live call.
+    if source != "live" and not err:
+        payload["source"] = source
     if err:
         # Never fatal: extract() returns the committed mock, tagged
         # source="fallback" so nothing can mistake it for a live extraction.

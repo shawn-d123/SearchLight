@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranscription } from "@/lib/useTranscription";
 import { elapsedLabel } from "@/lib/adapt";
 import type { Extraction } from "@/lib/contract";
 import { Ticks } from "./Panel";
@@ -106,6 +107,7 @@ export default function Intake({
   incident,
   onBegin,
   onReplay,
+  onTranscript,
 }: {
   transcript: string;
   transcriptFinal: boolean;
@@ -120,7 +122,18 @@ export default function Intake({
   incident: string;
   onBegin(): void;
   onReplay(): void;
+  /**
+   * Live microphone words, sent up the socket as `transcript_partial`. Omitted
+   * in mock mode, where there is no server to extract with.
+   */
+  onTranscript?(payload: { text: string; is_final: boolean }): void;
 }) {
+  const send = useCallback(
+    (payload: { text: string; is_final: boolean }) => onTranscript?.(payload),
+    [onTranscript],
+  );
+  const mic = useTranscription(send);
+
   const subject = extraction.subject;
   const lastKnown = extraction.last_known;
   const assessment = extraction.assessment;
@@ -218,6 +231,26 @@ export default function Intake({
               >
                 {live ? "Live call" : transcriptFinal ? "Call ended" : "Awaiting call"}
               </span>
+
+              {/* WHICH PATH IS RUNNING, always visible while audio is arriving.
+                  A recorded replay with a real extraction is entirely honest;
+                  presenting it as a live microphone is not, and it is the one
+                  thing here a judge can catch by asking to speak themselves. */}
+              {mic.mode !== "idle" && (
+                <span
+                  className="eyebrow"
+                  style={{
+                    padding: "2px 7px",
+                    border: "1px solid",
+                    borderColor:
+                      mic.mode === "live" ? "var(--amber)" : "var(--bone-faint)",
+                    color:
+                      mic.mode === "live" ? "var(--amber)" : "var(--bone-dim)",
+                  }}
+                >
+                  {mic.mode === "live" ? "MIC" : "RECORDED"}
+                </span>
+              )}
             </div>
             <span
               className="tabular text-[15px] font-medium"
@@ -388,6 +421,25 @@ export default function Intake({
               →
             </span>
           </button>
+
+          {/* Live microphone. Only offered when the browser can actually do
+              it (Chrome and Edge; Firefox and Safari have no
+              SpeechRecognition) and when there is a server to extract with.
+              Hidden rather than disabled elsewhere -- a dead button on stage
+              invites the one question you do not want. */}
+          {onTranscript && mic.supported && (
+            <button
+              onClick={mic.listening ? mic.stop : mic.startLive}
+              className="px-6 py-4 text-[13px] font-semibold uppercase tracking-[0.14em]"
+              style={{
+                color: mic.listening ? "var(--ground)" : "var(--amber)",
+                border: "1px solid var(--amber)",
+                background: mic.listening ? "var(--amber)" : "transparent",
+              }}
+            >
+              {mic.listening && mic.mode === "live" ? "Stop" : "Speak"}
+            </button>
+          )}
 
           <button
             onClick={onReplay}

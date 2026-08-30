@@ -80,6 +80,8 @@ export interface SearchlightApi extends SearchlightState {
   advance(): void;
   back(): void;
   replayTranscript(): void;
+  /** Live microphone words, sent up the socket as `transcript_partial`. */
+  sendTranscript(payload: { text: string; is_final: boolean }): void;
   /** Called by the map once the DEM is sampled. */
   setSampler(s: ElevationSampler | null): void;
 }
@@ -347,6 +349,14 @@ export function useSearchlight(): SearchlightApi {
     sourceRef.current?.replayTranscript();
   }, []);
 
+  /** Live microphone words, straight up the socket. */
+  const sendTranscript = useCallback(
+    (payload: { text: string; is_final: boolean }) => {
+      sourceRef.current?.sendTranscript(payload);
+    },
+    [],
+  );
+
   // --- elevation -----------------------------------------------------------
   const setSampler = useCallback((sampler: ElevationSampler | null) => {
     const first = !samplerRef.current && sampler;
@@ -367,7 +377,7 @@ export function useSearchlight(): SearchlightApi {
   }, []);
 
   return useMemo(
-    () => ({ ...s, go, advance, back, replayTranscript, setSampler }),
-    [s, go, advance, back, replayTranscript, setSampler],
+    () => ({ ...s, go, advance, back, replayTranscript, sendTranscript, setSampler }),
+    [s, go, advance, back, replayTranscript, sendTranscript, setSampler],
   );
 }
