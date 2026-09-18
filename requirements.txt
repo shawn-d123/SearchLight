@@ -1,0 +1,24 @@
+# The application: orchestrator, worker, model.
+#
+# The data pipeline needs a much heavier geospatial stack (geopandas, osmnx,
+# GDAL-free GeoTIFF reading). That lives in pipeline/requirements.txt and is
+# only needed to REBUILD data/ from source, which a clone does not have to do
+# because the arrays it produces are committed.
+
+# The worker and the model. numpy is the only thing a sandbox gets.
+numpy
+scipy
+
+# Orchestrator: the WebSocket server.
+fastapi
+uvicorn[standard]
+websockets
+
+# Orchestrator: the model calls and the fleet. Both optional at runtime --
+# `--offline` never imports them.
+openai
+daytona
+httpx
+
+# Tests.
+pytest

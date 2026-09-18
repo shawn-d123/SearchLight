@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's result irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Every job runs the product against the committed fixtures. No job has, or
+  # needs, an API key -- if one ever reaches the network the smoke test fails
+  # on its own socket guard rather than on a timeout.
+  SEARCHLIGHT_OFFLINE: "1"
+
+jobs:
+  web:
+    name: typecheck, lint, build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      # `npm ci` from the root: one lockfile, one install, the web workspace
+      # included.
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+  smoke:
+    name: offline run
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+          cache: pip
+
+      # requirements.txt is the application only. The geospatial stack that
+      # rebuilds data/ lives in pipeline/requirements.txt and is not installed
+      # here, because the arrays it produces are committed.
+      - run: pip install -r requirements.txt
+
+      - name: Drive the whole product against fixtures
+        run: python -m pytest

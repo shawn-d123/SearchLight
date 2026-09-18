@@ -1,3 +1,7 @@
+# Rebuilding data/ from source. Only needed to regenerate the terrain arrays,
+# trails, water, cases and priors -- all of which are committed, so a clone
+# runs the application without any of this. See ../requirements.txt for that.
+
 numpy
 scipy
 pandas
@@ -8,17 +12,10 @@ pyproj
 geopandas
 osmnx
 
-# Pure-Python GeoTIFF reader. Used instead of rasterio: on this Windows machine
-# rasterio and fiona both fail with "DLL load failed ... blocked by an
-# Application Control policy" (GDAL native binaries). tifffile reads the
-# OpenTopography 3DEP GeoTIFF fine, and geopandas writes GeoJSON via
+# Pure-Python GeoTIFF reader, used instead of rasterio. On a Windows machine
+# with Smart App Control enforced, rasterio and fiona both pip-install fine and
+# then fail at import with "DLL load failed ... blocked by an Application
+# Control policy" from their GDAL native binaries. tifffile reads the
+# OpenTopography 3DEP GeoTIFF, and geopandas writes GeoJSON through
 # gdf.to_json() rather than to_file(), which needs no GDAL either.
 tifffile
-
-# Orchestrator and generation. Not needed by the sandbox worker (numpy only),
-# but the WS server and the model calls will not import without them.
-fastapi
-uvicorn[standard]
-websockets
-openai
-daytona
