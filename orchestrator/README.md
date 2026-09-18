@@ -1,10 +1,7 @@
-# orchestrator/ — Person B
+# orchestrator/
 
 Fleet control, model calls, aggregation calls, and the WebSocket server. Runs on
-the laptop, so it may use whatever libraries it likes.
-
-**Read `../docs/fleet-benchmark.md` first.** It has the measured numbers and the three
-traps that cost real time.
+the host rather than in a sandbox, so it may use whatever libraries it likes.
 
 ## Files
 
@@ -22,9 +19,11 @@ traps that cost real time.
 ## Run it
 
 ```bash
-python orchestrator/server.py                 # the real thing
+python orchestrator/server.py                 # Daytona fleet, model calls
+python orchestrator/server.py --offline       # local fleet, no keys at all
 python orchestrator/pipeline.py --hypotheses 20 --total-runs 12000
 python orchestrator/pipeline.py --no-model    # the zero-generation floor
+python orchestrator/pipeline.py --offline     # headless, no keys
 python worker/run_local.py                    # no sandbox, no keys
 python orchestrator/fleet.py --reap           # delete orphaned sandboxes
 ```
@@ -68,10 +67,10 @@ seconds of still map with the beat that has to land arriving last.
 - **Normalise against a stable ceiling.** Renormalising every update makes the
   field pulse. `model.normalise_for_display` takes a `ceiling`.
 
-## Person C's model
+## The model boundary
 
-`build_field` and `apply_evidence` are implemented and wired in. Note the return
-shapes, which are **not** what the old stub docstrings said:
+`model/` is called as plain functions, never over a socket. The return shapes
+are pairs, and both halves matter:
 
 ```python
 grid, accumulator   = build_field(batches, bounds, resolution, accumulator=None)
@@ -84,19 +83,23 @@ every earlier trajectory on every update. `field_payload()` builds the whole
 CONTRACT section 7 object including `zones` and `field_area_pct`; do not
 hand-roll the base64.
 
-## Merged from a parallel implementation
+## Offline
 
-A second implementation of this directory was built at the same time and is in
-git history. This one won on the overlapping files. Removed as superseded:
-`worker/runner.py`, `worker/terrain.py`, `orchestrator/generate.py`,
-`pipeline/daytona_ctl.py`, `pipeline/check_calibration.py`. All recoverable:
+`local_fleet.py` presents the same four methods as `fleet.py` and runs the
+identical worker in this process over a thread pool. Same hypotheses, same
+movement code, same terrain arrays, same aggregation and evidence filter. What
+it gives up is the isolation boundary and the generated scripts, so every batch
+reports `generated: false` — which is exactly what the live path does when a
+generation fails.
+
+It declines a generated script rather than executing one. Isolation is what the
+fleet is for, and running model output in this process would throw it away.
 
 ```bash
-git show pre-rebase-upstream:worker/runner.py
+python orchestrator/pipeline.py --offline --hypotheses 8 --total-runs 2400
 ```
 
-**One idea from that branch is worth taking back** — sampling hypothesis
-duration from a lognormal calibrated against the published ISRID quantiles,
-rather than using elapsed-time-since-last-contact directly. See the
-`field_area_pct` section of `docs/fleet-benchmark.md`; it is the difference between a
-2.9% headline and a defensible one.
+Budgets scale with batch size there: `WORKER_BUDGET_S` is 8 s because a sandbox
+has a 10 s hard exec timeout in front of it, and ten threads on one machine are
+roughly ten times slower per run than ten vCPUs. A fixed 8 s silently truncated
+331 of 2,400 runs.

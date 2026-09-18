@@ -1,12 +1,14 @@
 # CONTRACT
 
-**Everyone reads this. Frozen by 10:45. Nothing changes after that without all three agreeing out loud.**
+The wire format. Every message that crosses a module boundary is defined here,
+and both sides are written against this file rather than against each other.
 
-This exists so three people can build alone and connect at 14:30 without a rewrite.
+Section numbers are cited throughout the source (`CONTRACT §7`, `section 9`),
+so they are stable: sections are not renumbered.
 
 ---
 
-## 1. Ground truth from last night
+## 1. Ground truth
 
 | | Value |
 |---|---|
@@ -27,27 +29,22 @@ Exact bounds, from `data/bbox.json`:
 
 ---
 
-## 2. Repo and workflow
+## 2. Who produces what
 
 ```
 searchlight/
-  web/        A owns
-  worker/          B owns   (runs inside a sandbox)
-  orchestrator/    B owns   (fleet control, WS server)
-  model/           C owns   (aggregation, evidence, scoring)
-  fixtures/           C owns   (committed, validated)
-  data/            terrain arrays, trails, cases - committed
-  pipeline/            last night's scripts, all re-runnable
+  web/            the client. Reduces one envelope stream (§9) and draws it
+  worker/         runs inside a sandbox. Produces trajectory batches (§6)
+  orchestrator/   fleet control, model calls, the WebSocket server
+  model/          aggregation (§7), the evidence filter, scoring
+  fixtures/       committed payloads, validated against this file (§11)
+  data/           terrain arrays, trails, cases, priors
+  pipeline/       builds everything in data/ and fixtures/, all re-runnable
 ```
 
-**Everyone on `main`. No feature branches.** The directories are disjoint so conflicts are near-impossible, and continuous integration matters more than isolation over six hours.
-
-- `git pull --rebase` then push, every 20–30 minutes
-- No PRs, no reviews, no branch protection
-- **Break main? Fix forward.** Nobody reverts, nobody blocks
-- **Nobody edits another person's directory**
-- Shared files (root `README`, `.gitignore`, `CONTRACT.md`, `data/`) are owned by C. Need a change? Ask
-- At 16:00, once it works, tag it. A known-good state one command away
+The direction of travel is one way. `worker` knows nothing above it,
+`orchestrator` calls `model` as functions (§10), and `web` sees only §9
+envelopes and cannot tell which producer sent them.
 
 ---
 
@@ -108,11 +105,11 @@ One Parallel research call retrieves documented incidents, ranger advisories and
 
 ### Caching is mandatory, not an optimisation
 
-**Run this before the event and commit the result to `data/local_knowledge.json`.** Never call Parallel live during the demo.
+**Run this once and commit the result to `data/local_knowledge.json`.** Parallel is never called during a run.
 
 Three reasons, and the first two are the important ones:
 
-1. **It is a failure point on stage.** A live web call in the middle of the pitch can hang, rate-limit or return nothing, at the exact moment nothing can go wrong.
+1. **It is a failure point.** A live web call in front of the fan-out can hang, rate-limit or return nothing, at the point where the run has not started and nothing else is on screen.
 2. **It is latency in the worst place.** The research pass sits *before* the fan-out, so a slow call means the map sits still while you talk. The simulation explosion is the beat that has to land instantly when you press run.
 3. It is the same query every run, so calling it repeatedly wastes budget and changes nothing.
 
@@ -131,7 +128,7 @@ Three reasons, and the first two are the important ones:
 }
 ```
 
-**Say "local knowledge is cached" in four words** if it comes up. Nobody blinks at a cached research pass. They blink at a suspiciously fast live web call, or at a demo that stalls waiting for one.
+The cache is stated rather than hidden: the payload carries `source.kind` and a verbatim label and URL for every finding, so an on-screen citation can be checked.
 
 If the file is missing or empty, hypothesis generation proceeds on terrain and statistics alone. **Nothing breaks.**
 
@@ -193,7 +190,7 @@ Sort cells descending, accumulate to 0.5, count cells, multiply by cell area, di
 
 The same definition is applied to the ring, so the comparison is like-for-like rather than rhetorical. Implemented in `model/field.py`.
 
-**Do not rehearse a number for this.** The mocks show 26.4% from a random walk. The real figure comes from terrain-aware simulation and will differ.
+The committed fixtures show 26.4% from a corridor-biased random walk. The figure a real run produces comes from terrain-aware simulation and differs; do not quote the fixture value as a result.
 
 ### Hypothesis surfacing
 
@@ -218,7 +215,7 @@ The scoring grid is 25 million floats. It never touches the WebSocket. Same func
 
 ## 8. Intake — landing, call, report
 
-The demo opens before the map. Three states, all in the same Next.js app sharing the same canvas, panels and palette. **Not a separate application.**
+Intake comes before the map. Three states, all in the same Next.js app, sharing the same canvas, panels and palette.
 
 ### `landing`
 
@@ -241,11 +238,11 @@ Live transcription via the **browser Web Speech API**, not Whisper. It transcrib
 
 **The transcript is texture. The structured extraction is the hero.** A hackathon venue at 5pm is loud and recognition will mangle words. Build so that does not matter: an imperfect transcript still yields a correct report because a model pulls the fields out of it. If it garbles a word and the card still populates correctly, say so — that reads as robustness.
 
-**Mandatory fallback:** a key that types a pre-written transcript at speaking pace. If the mic fails, say "the room's too loud, here's the recorded version" and move on.
+**Mandatory fallback:** a key that replays a recorded transcript at speaking pace, for when the microphone is unusable. The extraction that runs over it is the same one the live path uses, and the payload is tagged `source: "fallback"` so a replay is never presented as a live call.
 
 ### `intake` — the report
 
-Header shows `INCIDENT SL-2084` and keeps it for the rest of the demo. Three panels, same corner registration ticks as the rail so it does not look like a different application:
+Header shows `INCIDENT SL-2084` and holds it. Three panels, same corner registration ticks as the rail:
 
 | Panel | Fields |
 |---|---|
@@ -273,7 +270,7 @@ One button: **BEGIN SEARCH** → `briefing`.
 
 This becomes the `case_loaded` payload. `ring_radius_m` comes from `data/priors.json` keyed on `category` — **derived, not extracted.** The model reads the call; the statistics come from ISRID.
 
-### The demo script — every detail feeds something visible
+### The recorded call — every detail feeds something visible
 
 > *"I need to report a missing person. My friend Alex Morgan went hiking on the Marshall Gulch trail in the Catalinas this morning. He's twenty-four, experienced hiker, been out there before. He was going to call me when he reached the top but I haven't heard from him since about ten past six. His phone's going straight to voicemail so I think the battery's dead. He was wearing a red jacket and he had no injuries when he set off."*
 
@@ -290,7 +287,7 @@ Nothing in that script is decoration. If a detail does not drive something visib
 
 ### Ownership and cut order
 
-**Person C builds this, 13:30–14:30**, after the evidence filter. It needs no deck.gl and no terrain, so it does not compete for Person A's time. The extraction is a model call, which is C's territory, and C owns the pitch so the narrative framing is theirs.
+Intake needs no deck.gl and no terrain, so it is independent of the map work. The extraction is a server-side model call: a key in browser JavaScript is a published key.
 
 **First thing cut if the validation run is at risk.** Validation is worth more than the opening.
 
@@ -321,14 +318,14 @@ Nothing in that script is decoration. If a detail does not drive something visib
 
 ### Frontend to server (commands)
 
-**This is how the frontend drives the demo.** Without it Person A cannot start
+**This is how the client drives a run.** Without it the client cannot start
 a run at all. Same envelope as everything else: `{"type": "run", "payload": {}}`.
 
 | send | payload | effect |
 |---|---|---|
 | `run` | `{total_runs, n_hypotheses}`, both optional | starts a simulation |
 | `evidence` | `{lat, lon, t, radius_m, reliability}` | applies the witness filter |
-| `state_change` | `{state}` | moves the demo to a state |
+| `state_change` | `{state}` | moves the session to a state |
 | `ping` | `{}` | replies with `pong` |
 
 Omitting the `run` payload uses the server defaults.
@@ -368,13 +365,13 @@ field_area_pct(grid, cell_area_m2, ring_radius_m)                     -> float
 
 ---
 
-## 11. Mocks
+## 11. Fixtures
 
-In `fixtures/`, validated against this file:
+In `fixtures/`, validated against this file by `pipeline/validate_fixtures.py`:
 
 `case.json`, `trajectories.json`, `field.json`, `field_partial.json`, `field_collapsed.json`, `fleet_status.json`
 
-Add `fixtures/transcript.txt` (the demo script above) and `fixtures/extraction.json` (the §8 payload) so intake can be built and rehearsed without a microphone.
+`fixtures/transcript.txt` (the recorded call above) and `fixtures/extraction.json` (the §8 payload) let intake run without a microphone and without a model.
 
 **They ship at 12 runs per batch (2,400 runs), not 60.** A 12,000-run JSON is ~12 MB. For frame-rate testing regenerate at full scale:
 
@@ -382,16 +379,8 @@ Add `fixtures/transcript.txt` (the demo script above) and `fixtures/extraction.j
 python pipeline/make_fixtures.py --stress
 ```
 
-**Person A must stress-test against the 60-run file, not the committed one.**
+Frame rate is judged against the stress file, not the committed one.
 
-Every component works against mocks before it works against live data. A `DATA_SOURCE` flag switches `'mock'` / `'live'`. If that flag exists, 14:30 is a config change instead of a debugging session.
+Every component works against fixtures before it works against live data. `NEXT_PUBLIC_DATA_SOURCE` switches `mock` / `live`, so moving between them is a config change rather than a code change.
 
 ---
-
-## 12. The five rules
-
-1. **Contract frozen by 10:45.** All three, fifteen minutes, out loud.
-2. **Mocks first, live second.** Nobody ever waits on anyone.
-3. **14:30 is hard.** Flip `DATA_SOURCE` to live and find out what breaks. However ugly. First integration at 16:00 means no demo.
-4. **Nobody edits another person's directory.**
-5. **Commit and push hourly.**

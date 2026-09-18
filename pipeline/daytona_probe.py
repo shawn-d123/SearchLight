@@ -1,4 +1,6 @@
-"""TASK 8 -- measure the fleet. RUN AND SUPERSEDED; results in docs/fleet-benchmark.md.
+"""Measure the fleet against the live Daytona account.
+
+Results land in pipeline/TIMINGS.json, which is committed.
 
 This was written before there was an API key and never executed. It has since
 been run, and the answers it was built to find are already recorded:
@@ -10,7 +12,7 @@ been run, and the answers it was built to find are already recorded:
     * cold-starting the whole 10-sandbox fleet takes ~2.2 s, which is why the
       demo acquires at startup and holds rather than pooling
 
-**Read `docs/fleet-benchmark.md`. It is the deliverable; this is just the tool.**
+The numbers are the deliverable; this is the tool that produces them.
 
 The original implementation had three faults that are fixed by delegating to
 `orchestrator/fleet.py` instead of duplicating it:
@@ -102,7 +104,7 @@ def main():
            "runs_ok": n_ok, "runs_total": n_all,
            "sims_per_s": round(n_ok / max(wall, 1e-6), 1)}
     (ROOT / "prep" / "TIMINGS.json").write_text(json.dumps(out, indent=2))
-    print("\nwrote pipeline/TIMINGS.json  (the narrative lives in docs/fleet-benchmark.md)")
+    print("\nwrote pipeline/TIMINGS.json")
     return 0
 
 

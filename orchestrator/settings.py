@@ -12,7 +12,7 @@ WORKER = ROOT / "worker"
 # 1 GiB, not 2. Measured against the live account: the binding limit is TOTAL
 # MEMORY 10 GiB (and total CPU 10), so a 2 GiB worker caps the fleet at 5 while
 # a 1 GiB worker caps it at 10. A worker mmaps 33.7 MB of terrain and holds a
-# few thousand floats; 1 GiB is not close to tight. See docs/fleet-benchmark.md.
+# few thousand floats; 1 GiB is not close to tight, and it doubles the fleet.
 SNAPSHOT = "searchlight-worker-1g"
 SNAPSHOT_CPU = 1
 SNAPSHOT_MEM_GIB = 1
@@ -88,9 +88,40 @@ def load_case(path=None):
     return normalise_case(json.loads(open(p, encoding="utf-8").read()))
 
 
+# --- offline ---------------------------------------------------------------
+# One switch, read by everything that would otherwise reach the network.
+#
+# A dict rather than a module-level bool because the CLI flags set it after
+# import: `from settings import OFFLINE` then rebinding a bool would leave
+# every module that imported it holding the old value.
+OFFLINE = {"on": os.environ.get("SEARCHLIGHT_OFFLINE", "").strip()
+                 not in ("", "0", "false", "False")}
+
+
+def set_offline(on):
+    OFFLINE["on"] = bool(on)
+    os.environ["SEARCHLIGHT_OFFLINE"] = "1" if on else "0"
+
+
+def offline():
+    return OFFLINE["on"]
+
+
+def have_key(name):
+    """True when a key is present AND we are not deliberately offline.
+
+    Every model call site asks this rather than catching the failure, because
+    two of them evaluate the client as a function argument and would raise
+    before reaching their own fallback branch.
+    """
+    return not OFFLINE["on"] and bool(os.environ.get(name, "").strip())
+
+
 def key(name, required=True):
     v = os.environ.get(name, "").strip()
-    if not v and required:
+    if not v and required and not OFFLINE["on"]:
         raise SystemExit(
-            "{} is not set. Put it in {} (gitignored).".format(name, ROOT / ".env"))
+            "{} is not set. Put it in {} (gitignored), or run with --offline "
+            "to use the local fleet and the committed fixtures.".format(
+                name, ROOT / ".env"))
     return v

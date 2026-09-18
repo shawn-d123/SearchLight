@@ -1,7 +1,8 @@
-# Frontend dependency decisions
+# Client dependency decisions
 
-Three pins that look like arbitrary version choices and are not. Each cost time
-to find. **Do not bump them without re-running `npm run verify`.**
+Pins that look like arbitrary version choices and are not. Each one was found by
+something breaking. Re-run `npm run verify --workspace web` before bumping any
+of them.
 
 ## 1. `maplibre-gl` is `~5.24.0`, not 6.x
 
@@ -41,8 +42,8 @@ Not a dependency, but the same category of trap: a thing that looks like a free
 choice and is not.
 
 `canvas` is the natural source type for a surface that repaints in place, and it
-renders correctly at pitch 0. At pitch 57 over terrain it **tears into
-hard-edged polygons**. Swapping in an `image` source with byte-identical pixels
+renders correctly at pitch 0. At pitch 57 over terrain it tears into hard-edged
+polygons. Swapping in an `image` source with byte-identical pixels
 and identical coordinates, on the same map at the same camera, drapes cleanly.
 
 Ruled out along the way: tile residency (`areTilesLoaded` was `true`), the size
@@ -64,8 +65,7 @@ no React wrapper in the path and nothing for it to do.
 - **No basemap CDN.** `lib/mapStyle.ts` is a self-contained style: terrain from
   cached tiles, contours/trails/water from `public/data`. The scaffold pointed
   at CARTO's dark-matter style, which meant a black basemap under working
-  terrain on a dead network. That was flagged as the frontend's call; this is
-  the call.
+  terrain the moment the network went away.
 - **No glyph or sprite server.** Nothing in the style draws text or icons —
   every label is HTML over the canvas. A remote glyph URL would reintroduce the
   network dependency the local style just removed.

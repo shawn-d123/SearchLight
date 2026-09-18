@@ -1,4 +1,4 @@
-# worker/ — Person B
+# worker/
 
 Runs **inside a Daytona sandbox**. Nothing here imports anything outside numpy.
 

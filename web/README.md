@@ -1,19 +1,19 @@
-# Searchlight — frontend
+# web/
 
-Person A owns this directory. One screen with states; the layout never changes,
-only the state does.
+The client. One screen with states: the layout holds still and the state
+changes under it.
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000
+npm install                    # from the repo root, once
+npm run dev --workspace web    # fixtures only, no backend
+npm run dev:live --workspace web   # against ws://localhost:8000/ws
 ```
 
-Then press **space** repeatedly. That is the whole demo.
+Then press **space** repeatedly. That is the whole flow.
 
 ## Keys
 
-The keyboard is the real interface during the pitch — the presenter never
-touches the mouse.
+The keyboard is the interface. Every state is reachable without the mouse.
 
 | Key | |
 |---|---|

@@ -31,7 +31,7 @@ MILES_TO_KM = 1.609344
 
 # Six cases record the find location at the IPP exactly. Any model peaked at the
 # IPP scores ~1.0 on them, inflating baseline and field alike. Excluded from
-# validation, and the exclusion is stated aloud. See docs/fleet-benchmark.md.
+# validation, and the exclusion is reported rather than quietly applied.
 DEGENERATE_M = 20.0
 
 # Generous Arizona envelope, used only to catch corrupt coordinates.
@@ -250,7 +250,7 @@ def main():
                    "categories on mountainous terrain, find inside the 25 km "
                    "scoring window and not identical to the IPP"),
         "excluded_degenerate": ("6 cases dataset-wide have find == IPP and are "
-                                "excluded from validation; see docs/fleet-benchmark.md"),
+                                "excluded from validation: find location is the IPP"),
         "note_yosemite": ("The spec assumed Yosemite. The free MapScore subset "
                           "contains Arizona only (131 cases); Yosemite and New "
                           "York were never committed to that repo."),

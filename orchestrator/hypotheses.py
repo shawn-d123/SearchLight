@@ -133,6 +133,13 @@ def generate(case, n=12, model=HYPOTHESIS_MODEL, oai=None, data_dir=None):
     if oai is None:
         from codegen import client
         oai = client()
+    if oai is None:
+        # The fixed-family list from priors.json. Not a degraded mode so much
+        # as the floor the whole design rests on: the families and their
+        # weights are the published statistics, and the model only ever
+        # proposed variations within them.
+        return (fallback_hypotheses(case, n, families),
+                "offline: fixed families from priors.json")
 
     raw, err = None, None
     try:
@@ -194,8 +201,9 @@ def fallback_hypotheses(case, n, families=None):
 # Search horizon as a multiple of elapsed time. A subject missing 72 minutes
 # is not found 72 minutes from the IPP -- the published quantiles describe the
 # EVENTUAL find distance, and the search must cover where they could be by the
-# time teams arrive. Calibrated so the simulated median matches the published
-# p50; see pipeline/check_calibration.py.
+# time teams arrive. Calibrated so the simulated median distance reproduces the
+# published ISRID p50; `pipeline/verify_baseline.py` is what checks that the
+# quantile chain it rests on is right.
 DURATION_SCALE = 3.2
 MIN_DURATION_S = 900.0
 MAX_DURATION_S = 12 * 3600.0

@@ -1,6 +1,6 @@
 """Check every mock against CONTRACT.md. Run after any change to either.
 
-Exists because the contract is frozen at 10:45 and the mocks are what Person A
+Exists because the wire format is frozen and the fixtures are what the client
 builds against until 14:30. If they disagree, that is discovered at the hard
 integration point with no time to fix it. This turns that into a failing check.
 

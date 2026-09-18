@@ -1,4 +1,4 @@
-"""The benchmark metric. Person C owns this file.
+"""The benchmark metric.
 
 Published scores on 376 real historical cases: the ISRID distance ring that
 teams use today scores 0.78 (95% CI 0.74-0.82); the best published combined

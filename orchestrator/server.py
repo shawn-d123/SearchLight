@@ -3,10 +3,16 @@
 Every message is `{"type": ..., "seq": n, "payload": {...}}`.
 
 The pipeline is synchronous and runs in a worker thread; messages cross into the
-event loop through a queue. Person A drives it with `state_change` and `run`.
+event loop through a queue. The web client drives it with `state_change` and
+`run`.
 
-    python orchestrator/server.py
-    python orchestrator/server.py --no-fleet    # mocks, no Daytona, no keys
+    python orchestrator/server.py               # Daytona fleet, model calls
+    python orchestrator/server.py --offline     # local fleet, no keys at all
+
+Offline is a real run, not a replay: the same hypotheses, the same movement
+code, the same aggregation and the same evidence filter, executed in this
+process instead of in ten sandboxes. What it gives up is the isolation and the
+generated scripts. See orchestrator/local_fleet.py.
 """
 from __future__ import annotations
 
@@ -17,7 +23,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from settings import DATA, FIXTURES, MAX_SANDBOXES, load_case as settings_load_case
+from settings import (DATA, FIXTURES, MAX_SANDBOXES, offline,
+                      load_case as settings_load_case)
 from pipeline import Pipeline
 
 STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
@@ -26,10 +33,11 @@ STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
 @asynccontextmanager
 async def lifespan(app):
     hub.loop = asyncio.get_running_loop()
-    if CONFIG["use_fleet"]:
-        # Acquire at startup, not on the keypress. See docs/fleet-benchmark.md: there is
-        # no warm-pool API on this tier, so holding the fleet IS the warm pool.
-        threading.Thread(target=_boot_fleet, daemon=True).start()
+    # Acquire at startup, not on the keypress: there is no warm-pool API on
+    # this account tier, so holding the fleet IS the warm pool. Offline
+    # acquires lanes, which is instant, but goes through the same path so
+    # there is one startup sequence rather than two.
+    threading.Thread(target=_boot_fleet, daemon=True).start()
     try:
         yield
     finally:
@@ -119,7 +127,7 @@ FIELD_STAGGER_S = 0.35
 
 hub = Hub()
 pipeline = None
-CONFIG = {"total_runs": 12000, "n_hypotheses": 20, "use_fleet": True}
+CONFIG = {"total_runs": 12000, "n_hypotheses": 20}
 
 
 def load_case():
@@ -150,7 +158,11 @@ def _boot_fleet():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "state": hub.state, "clients": len(hub.clients),
+    """Enough to tell, from outside, whether a run would work right now."""
+    return {"ok": True,
+            "offline": offline(),
+            "state": hub.state,
+            "clients": len(hub.clients),
             "sandboxes": len(pipeline.sandboxes) if pipeline else 0,
             "prepared": bool(pipeline and pipeline._prepared)}
 
@@ -243,7 +255,7 @@ async def _play_intake(source="fallback"):
     #
     # The model call runs CONCURRENTLY with the transcript replay. It takes
     # about two seconds against a call that takes six to speak, so it lands
-    # well before the fields are due and Person A's choreography is unchanged:
+    # well before the fields are due and the report card's pacing is unchanged:
     # word groups at TRANSCRIPT_TICK_S, fields starting partway through.
     #
     # On any failure extract() returns the committed mock tagged
@@ -485,15 +497,20 @@ def _prepare_next():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--no-fleet", action="store_true",
-                    help="serve the socket without touching Daytona")
+    ap.add_argument("--offline", action="store_true",
+                    help="local fleet and committed fixtures; no API keys")
     ap.add_argument("--total-runs", type=int, default=12000)
     ap.add_argument("--hypotheses", type=int, default=20)
     args = ap.parse_args()
 
-    CONFIG["use_fleet"] = not args.no_fleet
+    if args.offline:
+        from settings import set_offline
+        set_offline(True)
     CONFIG["total_runs"] = args.total_runs
     CONFIG["n_hypotheses"] = args.hypotheses
+
+    print("searchlight orchestrator: {} mode".format(
+        "OFFLINE (local fleet, no keys)" if offline() else "live"))
 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=args.port, log_level="info")

@@ -55,7 +55,7 @@ export function createFixtureSource(): Source {
     if (loading) return loading;
 
     loading = (async () => {
-      // Stress fixture first: Person A must judge frame rate against 12,000
+      // Stress fixture first: frame rate has to be judged against 12,000
       // runs, not the 2,400 the repo ships. Absent on a clean clone, so fall
       // back rather than failing to start.
       const stress = await fetchJson<TrajectoryBatch[]>(FIXTURES.trajectories12k);

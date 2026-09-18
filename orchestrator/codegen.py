@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse, json, os, re, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from settings import WORKER, key, load_case
+from settings import WORKER, have_key, key, load_case
 
 sys.path.insert(0, str(WORKER))
 from templates import template_for  # noqa: E402
@@ -139,8 +139,18 @@ def strip_fences(text):
 
 
 def client():
+    """The OpenAI client, or None when there is no key to build it with.
+
+    Returns None rather than raising. Two callers evaluate this as a function
+    argument -- pipeline._scripts passes codegen.client() straight into
+    generate_many -- so raising here happens BEFORE the branch that would
+    handle a failed generation, and takes the whole run with it instead of
+    falling back to the templates.
+    """
+    if not have_key("OPENAI_API_KEY"):
+        return None
     from openai import OpenAI
-    return OpenAI(api_key=key("OPENAI_API_KEY"))
+    return OpenAI(api_key=key("OPENAI_API_KEY", required=False))
 
 
 def generate_script(oai, hyp, terrain_facts, model=CODEGEN_MODEL, timeout=60):
@@ -149,6 +159,8 @@ def generate_script(oai, hyp, terrain_facts, model=CODEGEN_MODEL, timeout=60):
     None means fall back to the family template. That path is not exceptional --
     it is the demo's floor, and it must stay cheap to reach.
     """
+    if oai is None:
+        return None, "no OpenAI client (offline or no key)"
     try:
         r = oai.chat.completions.create(
             model=model,
@@ -174,6 +186,10 @@ def generate_many(oai, hyps, terrain_facts, model=CODEGEN_MODEL, max_workers=16,
     """One call per hypothesis, in parallel. Returns {hypothesis_id: script},
     omitting the ones that failed -- the caller falls back per family."""
     out, errors = {}, {}
+    if oai is None:
+        # No threads, no futures, no per-hypothesis error strings that all say
+        # the same thing. Every batch takes its family template.
+        return out, {h["hypothesis_id"]: "offline: no generation" for h in hyps}
 
     def one(h):
         return h["hypothesis_id"], generate_script(oai, h, terrain_facts, model)

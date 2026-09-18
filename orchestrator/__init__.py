@@ -1,1 +1,1 @@
-"""Person B: fleet control, hypothesis planning, WS server."""
+"""Fleet control, hypothesis planning, code generation, WebSocket server."""

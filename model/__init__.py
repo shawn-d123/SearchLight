@@ -1,1 +1,1 @@
-"""Person C: aggregation, evidence, scoring."""
+"""Aggregation, evidence filtering and scoring."""

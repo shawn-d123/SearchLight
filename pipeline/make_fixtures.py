@@ -1,6 +1,7 @@
-"""TASK 4 - generate the mock payloads Person A builds against.
+"""Generate the committed fixtures the web client runs against.
 
-Person A cannot start without these. They only need the right SHAPE, so the
+The web client runs entirely off these with no backend. They need the right
+SHAPE above all, so the
 movement model here is a crude corridor-biased random walk, not the real thing.
 Everything is deterministic (fixed seed) so re-running produces byte-identical
 files and never churns the diff.
@@ -285,7 +286,7 @@ def main():
     ap.add_argument("--runs-per-batch", type=int, default=RUNS_PER_BATCH)
     ap.add_argument("--stress", action="store_true",
                     help="write ONLY trajectories_12k.json at 60 runs/batch, "
-                         "for Person A's frame-rate check. Leaves the standard "
+                         "for the frame-rate check. Leaves the standard "
                          "mocks untouched.")
     args = ap.parse_args()
     if args.stress:
@@ -304,7 +305,8 @@ def main():
         len(batches), n_runs, n_fail, 100 * n_fail / n_runs))
 
     if args.stress:
-        # Person A's checklist: "Verify 12,000 paths at realistic point counts."
+        # Frame rate has to be judged against 12,000 paths at realistic point
+        # counts, not the 2,400 the repo ships.
         # TripsLayer runs on the GPU so it should hold, but confirm rather than
         # assume. If it stutters, render a visible subset of ~2,000 -- the
         # visual is identical and nobody can count them.

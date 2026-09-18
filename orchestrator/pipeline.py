@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import argparse, json, sys, threading, time
 
-from settings import MAX_SANDBOXES, ROOT, load_case
+from settings import MAX_SANDBOXES, ROOT, load_case, offline
 import hypotheses as hypmod
-from fleet import Fleet
 
 sys.path.insert(0, str(ROOT))
 
@@ -29,8 +28,18 @@ class Pipeline:
     def __init__(self, emit=None, n_sandboxes=MAX_SANDBOXES, use_model=True):
         self.emit = emit or (lambda t, p: None)
         self.n_sandboxes = n_sandboxes
-        self.use_model = use_model
-        self.fleet = Fleet()
+        # Offline means no Daytona and no model, so there is nothing for
+        # use_model to be true about.
+        self.use_model = use_model and not offline()
+        # Imported here, not at module scope: `fleet` constructs a Daytona
+        # client in its own __init__, so importing it offline would need a key
+        # before anything had a chance to choose the local path.
+        if offline():
+            from local_fleet import LocalFleet
+            self.fleet = LocalFleet()
+        else:
+            from fleet import Fleet
+            self.fleet = Fleet()
         self.sandboxes = []
         self.case = None
         self.batches = []
@@ -44,6 +53,15 @@ class Pipeline:
         # measured n_total 800 for a 600-run job, with those endpoints also
         # double-weighted in the field. One folder at a time.
         self._field_lock = threading.Lock()
+        # The accumulator lives here rather than being threaded through
+        # on_batch. It used to be passed in and assigned back by the caller,
+        # which is a read-modify-write across threads: the final emit read the
+        # accumulator BEFORE a concurrent emit finished replacing it, then
+        # folded an empty batch list into a fresh one and produced an all-zero
+        # grid. field_payload then raised "grid sums to zero" and the last
+        # field_update -- the completed field, the one the whole run exists to
+        # produce -- was never sent.
+        self._accumulator = None
         self._stats = {"active": 0, "complete": 0, "failed": 0, "families": {}}
 
     # -- setup -------------------------------------------------------------
@@ -51,7 +69,8 @@ class Pipeline:
     def acquire_fleet(self):
         """Call this at startup, not when the operator presses run. Cold start
         is only ~2 s for the whole fleet, but 2 s of still map is 2 s of still
-        map. There is no warm-pool API on this tier -- see docs/fleet-benchmark.md."""
+        map. There is no warm-pool API on this account tier: the endpoint
+        404s, so holding the fleet IS the warm pool."""
         self.fleet.ensure_snapshot()
         self.sandboxes, errors = self.fleet.acquire(self.n_sandboxes)
         return self.sandboxes, errors
@@ -95,6 +114,7 @@ class Pipeline:
         self.case = case
         self.batches = []
         self._folded = 0
+        self._accumulator = None
         self.emit("case_loaded", case)
 
         prepared = getattr(self, "_prepared", None)
@@ -136,7 +156,6 @@ class Pipeline:
         ticker.start()
 
         pending, last_field = [], [0.0]
-        accumulator_ref = [None]
 
         def on_batch(batch, done, total):
             with self._lock:
@@ -158,9 +177,9 @@ class Pipeline:
                 self._emit_trajectories(batch_slice)
             if due or done == total:
                 last_field[0] = time.monotonic()
-                accumulator_ref[0] = self._emit_field(
-                    accumulator_ref[0], done / max(1, total),
-                    blocking=(done == total))
+                self._emit_field(done / max(1, total),
+                                 blocking=(done == total),
+                                 final=(done == total))
 
         work = [(h, scripts.get(h["hypothesis_id"])) for h in hyps]
         t0 = time.perf_counter()
@@ -231,27 +250,27 @@ class Pipeline:
         if out:
             self.emit("trajectory_batch", {"batches": out})
 
-    def _emit_field(self, accumulator, progress, blocking=False):
-        """Person C owns build_field. Until it exists this is a no-op that says
-        so once, rather than a crash that takes the run with it.
+    def _emit_field(self, progress, blocking=False, final=False):
+        """Fold whatever has arrived since the last emit and put it on the wire.
 
         Serialised: a concurrent caller skips rather than queues, because the
         next tick folds whatever it missed. The FINAL emit passes blocking=True
         so the last batches are never dropped.
         """
         if not self._field_lock.acquire(blocking=blocking):
-            return accumulator
+            return
         try:
-            return self._emit_field_locked(accumulator, progress)
+            self._emit_field_locked(progress, final)
         finally:
             self._field_lock.release()
 
-    def _emit_field_locked(self, accumulator, progress):
+    def _emit_field_locked(self, progress, final=False):
+        accumulator = self._accumulator
         try:
             from model.field import build_field, field_payload
         except Exception as e:
             self._warn_once("field_import", "model.field unavailable: {}".format(e))
-            return accumulator
+            return
 
         # Fold ONLY the batches not already in the accumulator. build_field is
         # incremental -- passing the full list back alongside the accumulator
@@ -264,8 +283,13 @@ class Pipeline:
         with self._lock:
             new = self.batches[self._folded:]
             folded_to = len(self.batches)
-        if not new and accumulator is not None:
-            return accumulator
+        # The final emit goes out even with nothing new to fold. When lanes
+        # finish together an earlier tick can have already folded every batch,
+        # and skipping here left the last field_update reading 17% for a run
+        # that had finished -- the frontend sizes its progress bar and decides
+        # the field is settled on that number.
+        if not new and accumulator is not None and not final:
+            return
 
         # CONTRACT.md section 10: build_field returns (grid, accumulator). The
         # accumulator is opaque state owned by model/field.py -- keep handing
@@ -274,14 +298,15 @@ class Pipeline:
             grid, accumulator = build_field(new, self.case["bounds"],
                                             DISPLAY_RESOLUTION,
                                             accumulator=accumulator)
+            self._accumulator = accumulator
         except NotImplementedError:
             self._warn_once("field_stub",
-                            "model.build_field is still a stub (Person C)"
+                            "model.build_field is not implemented"
                             " - no field_update will be sent")
-            return accumulator
+            return
         except Exception as e:
             self._warn_once("field_error", "build_field raised: {}".format(e))
-            return accumulator
+            return
 
         # Only now is it safe to say these batches are in the accumulator. On
         # any failure above we return early WITHOUT advancing, so the batches
@@ -295,9 +320,8 @@ class Pipeline:
                 progress=progress, terrain=self._zone_terrain())
         except Exception as e:
             self._warn_once("payload_error", "field_payload raised: {}".format(e))
-            return accumulator
+            return
         self.emit("field_update", payload)
-        return accumulator
 
     def _zone_terrain(self):
         """Elevation array for naming zones. Loaded once; absent is fine."""
@@ -323,7 +347,7 @@ class Pipeline:
                 ring_radius_m=self.case.get("ring_radius_m"))
         except NotImplementedError:
             self._warn_once("evidence_stub",
-                            "model.apply_evidence is still a stub (Person C)")
+                            "model.apply_evidence is not implemented")
             return
         except Exception as e:
             self._warn_once("evidence_error", "apply_evidence raised: {}".format(e))
@@ -361,9 +385,15 @@ def main():
     ap.add_argument("--sandboxes", type=int, default=MAX_SANDBOXES)
     ap.add_argument("--no-model", action="store_true",
                     help="templates only -- proves the zero-generation floor")
+    ap.add_argument("--offline", action="store_true",
+                    help="local fleet, no Daytona, no model, no keys")
     ap.add_argument("--keep", action="store_true")
     ap.add_argument("--dump")
     args = ap.parse_args()
+
+    if args.offline:
+        from settings import set_offline
+        set_offline(True)
 
     counts = {}
 

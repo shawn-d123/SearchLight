@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 /**
- * The shared panel primitive. Person C's intake screens use this too, so the
+ * The shared panel primitive. The intake screens use it too, so the
  * report does not read as a different application from the map.
  *
  * SIGNATURE ELEMENT: corner registration ticks instead of a full border. It is

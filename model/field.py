@@ -1,6 +1,6 @@
 """Aggregation, evidence filtering, and the headline area number.
 
-Person C owns this file. The orchestrator calls it directly -- see CONTRACT.md
+The orchestrator calls this module directly -- see CONTRACT.md
 section 10 for the frozen boundary:
 
     build_field(trajectory_batches, bounds, resolution, accumulator=None)

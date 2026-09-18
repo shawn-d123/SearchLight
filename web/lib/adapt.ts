@@ -5,7 +5,7 @@
  * ----------------------------------
  * CONTRACT.md and the committed mocks were written against each other but drift
  * in two places that still stand. Both were written in good faith: the contract
- * describes what the orchestrator will emit, the mocks are what Person C's
+ * describes what the orchestrator emits, the fixtures are what the
  * harness actually produces, and validate_fixtures.py passes because it checks the
  * field payload, which does agree.
  *

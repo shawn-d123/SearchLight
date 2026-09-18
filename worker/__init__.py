@@ -1,1 +1,1 @@
-"""Person B: the sandbox worker."""
+"""The sandbox worker: movement simulation, run inside an isolated machine."""

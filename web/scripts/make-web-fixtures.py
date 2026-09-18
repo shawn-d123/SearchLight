@@ -4,7 +4,7 @@ Generate the two payloads CONTRACT.md specifies but fixtures/ does not yet carry
     python3 scripts/make-web-fixtures.py
 
 Writes into web/public/fixtures/ only. It does NOT touch ../fixtures/ or ../pipeline/
-— those are Person C's. These exist so the frontend can be built and rehearsed
+— those come from pipeline/make_fixtures.py. These exist so the client runs
 before the orchestrator emits the real thing. When C ships them, drop them into
 ../fixtures/, copy them across, and delete this script; nothing else changes,
 because both arrive as the same envelopes.
@@ -262,7 +262,7 @@ sim_started = {
 val = baseline["runs"]["derived (holdout)"]["validation"]
 validation = {
     "n_cases": val["n"],
-    # Unknown until Person C's validation run. Rendering a rehearsed number here
+    # Unknown until the validation run. Rendering a rehearsed number here
     # would be presenting a result we do not have.
     "our_score": None,
     "ring_baseline": round(val["mean_R"], 3),

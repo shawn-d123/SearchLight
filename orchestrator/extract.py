@@ -150,6 +150,9 @@ def extract(transcript, model=EXTRACT_MODEL, oai=None, priors=None):
     if oai is None:
         from codegen import client
         oai = client()
+    if oai is None:
+        return (fallback_payload(transcript),
+                "offline: no extraction model, using the recorded report")
 
     lines = "\n".join("  {} -> [{}, {}]".format(k, v[0], v[1])
                       for k, v in TRAILHEADS.items())

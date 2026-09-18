@@ -9,7 +9,7 @@ import { Ticks } from "./Panel";
 /**
  * The call, and the report it produces.
  *
- * OWNERSHIP: CONTRACT §8 assigns the intake states to Person C — the extraction
+ * CONTRACT §8 defines the intake states. The extraction
  * is a model call, which is their territory. This is the shell: the layout, the
  * shared panel language, the staggered reveal, and a transcript replayed from
  * fixtures/transcript.txt. C swaps the mock producer for live Web Speech plus a
