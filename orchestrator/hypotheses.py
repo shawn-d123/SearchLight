@@ -42,7 +42,7 @@ Last contact {elapsed_min:.0f} minutes ago. {conditions}
 TERRAIN AROUND THE LAST KNOWN POINT
 {terrain}
 {local}
-FAMILIES â€” every hypothesis must be tagged with exactly one of these, spelled
+FAMILIES — every hypothesis must be tagged with exactly one of these, spelled
 exactly as written. These are published ISRID behaviour categories and their
 weights are fixed; you are proposing variations WITHIN them, not new ones.
 
@@ -52,13 +52,13 @@ Return JSON: {{"hypotheses": [{{"family": ..., "description": ..., "rationale": 
 
 - `description`: one sentence, plain English, what the person did. It goes on
   screen in front of an audience, so name real features from the terrain summary
-  above â€” the drainage, the ridge, the direction, the trail. "Followed the
+  above — the drainage, the ridge, the direction, the trail. "Followed the
   drainage south-east from the junction, path of least resistance on tiring
   legs" is right. "Route travelling behaviour" is useless.
 - `rationale`: one sentence on why this ground makes that plausible. Cite a
   number from the summary.
 - Spread them across the families roughly in proportion to the weights, and make
-  them genuinely different from each other â€” different directions, different
+  them genuinely different from each other — different directions, different
   terrain features. {n} near-identical hypotheses are worth one.
 {local_rule}
 JSON only."""
@@ -87,7 +87,7 @@ def _families_block(families):
 
 def build_prompt(case, terrain_text, n, families, findings):
     if findings:
-        local = ("\nDOCUMENTED LOCAL KNOWLEDGE â€” real incidents and advisories "
+        local = ("\nDOCUMENTED LOCAL KNOWLEDGE — real incidents and advisories "
                  "for this range:\n" +
                  "\n".join("  - {} [{}]".format(f.get("claim", ""),
                                                 f.get("label", "source"))

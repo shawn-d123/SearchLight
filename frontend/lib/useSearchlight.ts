@@ -115,6 +115,25 @@ export function useSearchlight(): SearchlightApi {
   /** Raw batches, kept so trips can be recomputed once the sampler lands. */
   const batchesRef = useRef<TrajectoryBatch[]>([]);
 
+  // The current state and the last field are mirrored into refs so advance(),
+  // back() and the witness report can read them without a setState updater.
+  // Deriving them inside an updater looks tidier but React may invoke that
+  // updater twice, and enter() is a side effect: a double call replays the
+  // fixture timeline twice and the paths animate at double density from a
+  // doubled trajectory stream.
+  //
+  // Mirrored from an effect, never from the render body. Both are read only by
+  // keyboard handlers and by socket callbacks, which run after the commit that
+  // updated them.
+  const stateRef = useRef<DemoState>(s.state);
+  const fieldRef = useRef<FieldView | null>(s.field);
+  useEffect(() => {
+    stateRef.current = s.state;
+  }, [s.state]);
+  useEffect(() => {
+    fieldRef.current = s.field;
+  }, [s.field]);
+
   const lift = useCallback(
     () =>
       samplerRef.current
@@ -274,16 +293,33 @@ export function useSearchlight(): SearchlightApi {
   }, [lift]);
 
   // --- navigation ----------------------------------------------------------
-  // The current state is mirrored into a ref so advance/back can read it
-  // without a setState updater. Deriving it inside an updater looks tidier but
-  // React may invoke that updater twice, and `enter()` is a side effect — a
-  // double call replays the mock timeline twice and the paths animate at
-  // double density from a doubled trajectory stream.
-  const stateRef = useRef<DemoState>(s.state);
-  stateRef.current = s.state;
-  /** The field as last received, so the witness report can be aimed at it. */
-  const fieldRef = useRef<FieldView | null>(s.field);
-  fieldRef.current = s.field;
+
+  /**
+   * Where the witness saw them.
+   *
+   * The location CANNOT be a fixed coordinate. The hypotheses are regenerated
+   * on every run, so the trajectories land somewhere different each time; a
+   * hardcoded sighting eventually falls where no simulation went, the filter
+   * discards everything, and the model raises "grid sums to zero - no
+   * probability mass to enclose". That happened live: the evidence beat did
+   * nothing at all and the field never updated.
+   *
+   * So the report is aimed at the field that was actually produced — the
+   * highest-probability zone. That is not cheating the demo: the witness is
+   * fictional either way, and a sighting somewhere people plausibly go is more
+   * realistic than one in empty desert. The filter is still doing real work,
+   * discarding every run that was not near that point at that time.
+   *
+   * Falls back to the configured coordinate when there are no zones yet.
+   */
+  const buildEvidence = useCallback((): Record<string, unknown> => {
+    const zone = fieldRef.current?.zones?.[0];
+    return {
+      ...DEMO_EVIDENCE,
+      lat: zone ? zone.centroid[0] : DEMO_EVIDENCE.lat,
+      lon: zone ? zone.centroid[1] : DEMO_EVIDENCE.lon,
+    };
+  }, []);
 
   const go = useCallback((state: DemoState) => {
     if (stateRef.current === state) return;
@@ -312,34 +348,7 @@ export function useSearchlight(): SearchlightApi {
     sourceRef.current?.enter(state);
 
     if (state === "evidence") sourceRef.current?.sendEvidence(buildEvidence());
-  }, []);
-
-  /**
-   * Where the witness saw them.
-   *
-   * The location CANNOT be a fixed coordinate. The hypotheses are regenerated
-   * on every run, so the trajectories land somewhere different each time; a
-   * hardcoded sighting eventually falls where no simulation went, the filter
-   * discards everything, and the model raises "grid sums to zero - no
-   * probability mass to enclose". That happened live: the evidence beat did
-   * nothing at all and the field never updated.
-   *
-   * So the report is aimed at the field that was actually produced — the
-   * highest-probability zone. That is not cheating the demo: the witness is
-   * fictional either way, and a sighting somewhere people plausibly go is more
-   * realistic than one in empty desert. The filter is still doing real work,
-   * discarding every run that was not near that point at that time.
-   *
-   * Falls back to the configured coordinate when there are no zones yet.
-   */
-  const buildEvidence = useCallback((): Record<string, unknown> => {
-    const zone = fieldRef.current?.zones?.[0];
-    return {
-      ...DEMO_EVIDENCE,
-      lat: zone ? zone.centroid[0] : DEMO_EVIDENCE.lat,
-      lon: zone ? zone.centroid[1] : DEMO_EVIDENCE.lon,
-    };
-  }, []);
+  }, [buildEvidence]);
 
   const advance = useCallback(() => go(nextState(stateRef.current)), [go]);
   const back = useCallback(() => go(prevState(stateRef.current)), [go]);

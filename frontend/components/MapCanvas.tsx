@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Map as MapLibreMap } from "maplibre-gl";
 import type { ErrorEvent, PaddingOptions } from "maplibre-gl";
 import { MapboxOverlay } from "@deck.gl/mapbox";
@@ -93,10 +100,13 @@ export default function MapCanvas({
   const fieldRef = useRef<FieldRenderer | null>(null);
   const [ready, setReady] = useState(false);
 
-  const onSamplerRef = useRef(onSampler);
-  onSamplerRef.current = onSampler;
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  // The map is built once and lives for the session. Both callbacks fire from
+  // inside that setup, long after the render that supplied them, so the effect
+  // must see the latest one without listing it as a dependency — naming them
+  // as dependencies would tear the map down and rebuild it every time the
+  // parent re-renders with a new closure.
+  const emitSampler = useEffectEvent((s: ElevationSampler) => onSampler(s));
+  const emitReady = useEffectEvent((map: MapLibreMap) => onReady?.(map));
 
   const padding: PaddingOptions = useMemo(
     () => ({ top: 72, bottom: 72, left: 72, right: railWidth + 72 }),
@@ -165,7 +175,7 @@ export default function MapCanvas({
       setCaseVisible(map, false);
 
       setReady(true);
-      onReadyRef.current?.(map);
+      emitReady(map);
 
       // The DEM has to be in memory before terrain heights can be sampled.
       // Deliberately NOT map.once("idle") — any continuous repaint means the
@@ -175,7 +185,7 @@ export default function MapCanvas({
         if (!map.isSourceLoaded("terrain")) return false;
         const s = buildElevationSampler(map, BOUNDS, 96);
         (window as unknown as { __samplerMs?: number }).__samplerMs = s.builtInMs;
-        onSamplerRef.current(s);
+        emitSampler(s);
         return true;
       };
       if (!tryBuild()) {
@@ -305,9 +315,15 @@ export default function MapCanvas({
     return () => cancelAnimationFrame(raf);
   }, [animating, maxTime]);
 
-  useEffect(() => {
+  // Re-entering briefing means a fresh run, so the sweep starts from 0 rather
+  // than wherever the last one stopped. Adjusted during render rather than in
+  // an effect: an effect would paint one frame of the old clock first, which
+  // on the projector reads as the previous run's paths flashing back.
+  const [clockState, setClockState] = useState(state);
+  if (state !== clockState) {
+    setClockState(state);
     if (state === "briefing") setTime(0);
-  }, [state]);
+  }
 
   // --- deck.gl layers ------------------------------------------------------
   const layers = useMemo<Layer[]>(() => {

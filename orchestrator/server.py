@@ -112,24 +112,6 @@ class Hub:
         finally:
             self.draining = False
 
-    def _legacy_emit(self, mtype, payload):
-        msg = self.envelope(mtype, payload)
-        # Trajectories and fields are large and stale the moment they land; only
-        # keep the small state-setting messages for a late joiner.
-        with self.lock:
-            if mtype == "case_loaded":
-                # A new run invalidates the old one. Without this, history grows
-                # across rehearsals and a client connecting before the third run
-                # is replayed the first two runs' sim_started messages.
-                self.history = []
-            if mtype in ("case_loaded", "sim_started", "hypotheses_ready",
-                         "fleet_ready", "state_change"):
-                self.history.append(msg)
-                del self.history[:-32]
-        if self.loop is None:
-            return
-        asyncio.run_coroutine_threadsafe(self._send(msg), self.loop)
-
 
 # Seconds between report-card fields. Fast enough not to stall the pitch,
 # slow enough that the stagger reads as extraction rather than a stutter.
@@ -397,6 +379,11 @@ async def handle(msg):
             _start_scripted(state)
 
     elif t == "replay_transcript":
+        # The T key, and the mandatory fallback when the microphone is not
+        # usable. Replays the recorded transcript at speaking pace and runs a
+        # REAL extraction over it: recorded audio, live extraction, with the
+        # payload tagged source="fallback" so nothing can present it as a live
+        # call.
         _start_scripted("intake")
 
     elif t == "run":
@@ -410,15 +397,6 @@ async def handle(msg):
         if pipeline:
             threading.Thread(target=pipeline._emit_evidence, args=(payload,),
                              daemon=True).start()
-
-    elif t == "replay_transcript":
-        # The T key, and the mandatory fallback. Person A's wsSource sends this
-        # and the server ignored it, so in live mode the intake screen produced
-        # nothing at all. Replays the committed transcript at speaking pace and
-        # runs a REAL extraction on it -- recorded audio, live extraction, and
-        # the payload says source="fallback" so nothing can present it as a
-        # live call.
-        _start_scripted("intake")
 
     elif t == "transcript_partial":
         # Interim words are relayed so every client sees the same call as it is
@@ -438,17 +416,15 @@ async def handle(msg):
 
 
 def _run_extraction(transcript, source="live"):
-    """The LIVE MICROPHONE path.
+    """The LIVE MICROPHONE path: transcript -> report card, one field at a time.
 
     _play_intake handles the recorded replay with its own choreography; this is
     what a real spoken call goes through. Same extraction, no scripted timing,
     because the words arrive when the caller says them.
-    """
-    """Transcript -> report card, one field at a time.
 
-    The stagger is deliberate and is the visual payoff of the transcription:
-    fields landing one after another read as a call being taken, where a card
-    appearing whole reads as a canned screen. FIELD_STAGGER_S is the only knob.
+    The stagger is the visual payoff of the transcription: fields landing one
+    after another read as a call being taken, where a card appearing whole
+    reads as a canned screen. FIELD_STAGGER_S is the only knob.
     """
     import extract as extractor
 

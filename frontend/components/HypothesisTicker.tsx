@@ -35,7 +35,14 @@ export default function HypothesisTicker({
   const [i, setI] = useState(0);
   const [visible, setVisible] = useState(true);
 
-  useEffect(() => setI(0), [hypotheses]);
+  // A new hypothesis list restarts the ticker at the top. Adjusted during
+  // render rather than in an effect, so the first painted frame is already the
+  // first hypothesis instead of whichever index the old list had reached.
+  const [shownFor, setShownFor] = useState(hypotheses);
+  if (hypotheses !== shownFor) {
+    setShownFor(hypotheses);
+    setI(0);
+  }
 
   useEffect(() => {
     if (shown.length < 2) return;

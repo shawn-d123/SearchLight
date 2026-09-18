@@ -1,8 +1,5 @@
 // Live transcription for the intake screen.
 //
-// A NEW FILE ON PURPOSE. Person A owns page.tsx and has uncommitted work on it;
-// this is a hook to import, not a rewrite to merge.
-//
 // Browser Web Speech API, not Whisper. It transcribes word by word with no
 // upload and no round trip, which is the whole effect -- Whisper needs
 // record, upload, wait, which kills it.
@@ -24,9 +21,39 @@
 // so `supported` will be false there and the fallback is the only path.
 // Requires https:// or localhost.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 export type TranscriptionMode = "idle" | "live" | "recorded";
+
+// The Web Speech API has no lib.dom types in this TS version, so the surface
+// this hook actually touches is declared here. Narrow on purpose: an `any`
+// would hide a rename in the two event shapes below, which are the only place
+// live words enter the application.
+interface RecognitionAlternative {
+  transcript: string;
+}
+interface RecognitionResult {
+  readonly length: number;
+  readonly isFinal: boolean;
+  [index: number]: RecognitionAlternative;
+}
+interface RecognitionResultList {
+  readonly length: number;
+  [index: number]: RecognitionResult;
+}
+interface RecognitionResultEvent {
+  resultIndex: number;
+  results: RecognitionResultList;
+}
+interface RecognitionErrorEvent {
+  error?: string;
+}
 
 type Recognition = {
   continuous: boolean;
@@ -35,21 +62,29 @@ type Recognition = {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: ((e: any) => void) | null;
-  onerror: ((e: any) => void) | null;
+  onresult: ((e: RecognitionResultEvent) => void) | null;
+  onerror: ((e: RecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
 };
 
+type RecognitionConstructor = new () => Recognition;
+
 function getRecognition(): Recognition | null {
   if (typeof window === "undefined") return null;
-  const Ctor =
-    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  return Ctor ? (new Ctor() as Recognition) : null;
+  const w = window as typeof window & {
+    SpeechRecognition?: RecognitionConstructor;
+    webkitSpeechRecognition?: RecognitionConstructor;
+  };
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  return Ctor ? new Ctor() : null;
 }
 
 export function isTranscriptionSupported(): boolean {
   return getRecognition() !== null;
 }
+
+/** Support never changes after load, so nothing ever needs to subscribe. */
+const subscribeNever = () => () => {};
 
 /** Types `text` out at a believable speaking pace. ~150 wpm. */
 function replay(
@@ -97,13 +132,18 @@ export function useTranscription(
   const [mode, setMode] = useState<TranscriptionMode>("idle");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [supported, setSupported] = useState(false);
+  // Read through useSyncExternalStore rather than set from an effect: the
+  // server has no SpeechRecognition, so it renders the unsupported branch
+  // and the client corrects it on hydration with no intermediate paint.
+  const supported = useSyncExternalStore(
+    subscribeNever,
+    isTranscriptionSupported,
+    () => false,
+  );
 
   const recRef = useRef<Recognition | null>(null);
   const cancelReplay = useRef<null | (() => void)>(null);
   const finalRef = useRef("");
-
-  useEffect(() => setSupported(isTranscriptionSupported()), []);
 
   const stop = useCallback(() => {
     cancelReplay.current?.();
@@ -133,7 +173,7 @@ export function useTranscription(
     rec.interimResults = true;
     rec.lang = "en-GB";
 
-    rec.onresult = (e: any) => {
+    rec.onresult = (e: RecognitionResultEvent) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
@@ -147,7 +187,7 @@ export function useTranscription(
       send({ text, is_final: false });
     };
 
-    rec.onerror = (e: any) => {
+    rec.onerror = (e: RecognitionErrorEvent) => {
       // "no-speech" and "aborted" are normal and not worth showing.
       if (e?.error && e.error !== "no-speech" && e.error !== "aborted") {
         setError(String(e.error));

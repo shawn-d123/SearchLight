@@ -235,8 +235,13 @@ def main():
                                   "error: " + err if err else ""))
     print(json.dumps(payload, indent=2)[:1200])
     print()
+    # field_sequence yields partial payloads -- {"subject": {"name": ...}} --
+    # not flat {section, field, value} descriptors. Unwrap the one key each
+    # carries; anything else would print the dict and hide the shape.
     for f in field_sequence(payload):
-        print("  {:<12} {:<14} {}".format(f["section"], f["field"], f["value"]))
+        (section, fields), = f.items()
+        for name, value in fields.items():
+            print("  {:<12} {:<14} {}".format(section, name, value))
 
 
 if __name__ == "__main__":

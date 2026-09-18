@@ -1,4 +1,4 @@
-﻿"""Describe the ground around a point, in plain English, from the arrays.
+"""Describe the ground around a point, in plain English, from the arrays.
 
 This is what lets the hypothesis model propose behaviours that exist only
 because something looked at THIS terrain -- "followed the drainage south-east,

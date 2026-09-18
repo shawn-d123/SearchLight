@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranscription } from "@/lib/useTranscription";
 import { elapsedLabel } from "@/lib/adapt";
 import type { Extraction } from "@/lib/contract";
@@ -147,24 +147,28 @@ export default function Intake({
   // Keyed on whether there IS a transcript, never on its text: transcript_partial
   // arrives every 150ms, so depending on the string tore the interval down and
   // rebuilt it before its 250ms tick could ever fire, and the clock sat at 00:00
-  // for the whole call.
+  // for the whole call. The origin is state, set during render the moment words
+  // exist, so the timer is already running on the frame that first shows them.
   const [seconds, setSeconds] = useState(0);
-  const startedAt = useRef<number | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const started = Boolean(transcript);
+  if (started && startedAt === null) setStartedAt(Date.now());
+  if (!started && startedAt !== null) {
+    setStartedAt(null);
+    setSeconds(0);
+  }
+
   useEffect(() => {
-    if (!started) {
-      startedAt.current = null;
-      setSeconds(0);
-      return;
-    }
-    if (startedAt.current === null) startedAt.current = Date.now();
-    const tick = () =>
-      setSeconds(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000));
-    tick();
-    if (transcriptFinal) return; // hold the final duration on screen
-    const id = setInterval(tick, 250);
+    // Stopping the interval on the final transcript holds the call duration on
+    // screen. The held value is the last 250ms tick, which for a whole-second
+    // readout is the same number the caller hung up on.
+    if (startedAt === null || transcriptFinal) return;
+    const id = setInterval(
+      () => setSeconds(Math.floor((Date.now() - startedAt) / 1000)),
+      250,
+    );
     return () => clearInterval(id);
-  }, [started, transcriptFinal]);
+  }, [startedAt, transcriptFinal]);
 
   const live = Boolean(transcript) && !transcriptFinal;
 
