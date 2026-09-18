@@ -49,3 +49,9 @@ _snapdata/
 
 # pipeline/tune_evidence.py's captured run (12 MB). Regenerate, do not commit.
 pipeline/_batches.json
+
+# Output of `npm run verify --workspace web`: eight screenshots and a frame-rate
+# record from a real Chrome window. Regenerated per run and per GPU, so the
+# numbers are only meaningful on the machine that produced them. The curated
+# screenshots the README uses are in docs/.
+web/verification/
