@@ -284,7 +284,9 @@ export const DEMO_EVIDENCE = {
  * transcript streams in small word groups: it covers the script quickly AND
  * looks more like live recognition than a typewriter effect did.
  *
- * scripts/mock-ws-server.mjs mirrors these numbers — it cannot import TS.
+ * TRANSCRIPT_WORDS_PER_TICK and TRANSCRIPT_TICK_S in orchestrator/server.py
+ * mirror these numbers, so the recorded replay paces the same over a live
+ * socket as it does off the fixtures. Change both together.
  */
 export const TRANSCRIPT_WORDS_PER_TICK = 2;
 export const TRANSCRIPT_TICK_MS = 150;

@@ -11,7 +11,6 @@
     "mocks": "python3 scripts/make-frontend-mocks.py",
     "contours": "python3 scripts/make-contours.py",
     "verify": "node scripts/verify.mjs",
-    "ws": "node scripts/mock-ws-server.mjs",
     "dev:live": "NEXT_PUBLIC_DATA_SOURCE=live next dev --webpack"
   },
   "dependencies": {
@@ -36,7 +35,6 @@
     "eslint-config-next": "16.3.3",
     "playwright": "^1.62.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "ws": "^8.21.3"
+    "typescript": "^5"
   }
 }
