@@ -1,0 +1,43 @@
+# Build context hygiene. The repository is large mostly because of the 1,060
+# committed terrain tiles, which the web image genuinely needs; everything
+# below it does not.
+
+.git
+.github
+.venv
+venv
+node_modules
+**/node_modules
+.next
+web/.next
+out
+
+# Never in an image.
+.env
+.env.*
+!.env.example
+
+# Regenerable intermediates. data/*.npy and the geojson ARE needed and are
+# deliberately not listed here.
+data/dem.tif
+data/trails.graphml
+data/_*.npy
+pipeline/mapscore
+pipeline/.osm_cache
+pipeline/_batches.json
+_snapdata
+
+# Rebuilding data/ from source is not something a container does.
+pipeline
+
+# Nothing that runs reads these.
+docs
+tests
+pytest.ini
+README.md
+**/README.md
+__pycache__
+**/__pycache__
+*.py[cod]
+*.tsbuildinfo
+web/verification

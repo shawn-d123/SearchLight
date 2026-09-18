@@ -172,21 +172,27 @@ async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     hub.clients.add(ws)
 
-    # CONTRACT.md section 8: the frontend builds the ISRID ring, the IPP marker
+    # ORDER MATTERS, and it is the contract rather than taste. Section 9
+    # promises that wire order and seq order always agree, so a client can
+    # order and de-duplicate on seq alone. The history is replayed with its
+    # ORIGINAL seq, which is lower than anything stamped now -- so it has to go
+    # out FIRST. Sending a freshly stamped case_loaded ahead of it put seq 12
+    # on the wire before seq 1, and every ordering guarantee downstream was a
+    # lie for the first four frames of every connection.
+    for msg in hub.history:
+        await ws.send_text(json.dumps(msg))
+
+    # CONTRACT.md section 8: the client builds the ISRID ring, the IPP marker
     # and every camera framing out of `case_loaded`. Emitting it only when a run
     # starts meant that between connecting and pressing run the map had no case
-    # at all -- no ring, no marker, no framing -- and the static frame is the
-    # milestone the whole build rests on. The case is known at startup, so send
-    # it on connect. Skipped if a run has already put one in the history, which
-    # is replayed just below.
+    # at all -- no ring, no marker, no framing. The case is known at startup, so
+    # send it on connect, unless a run already put one in the history above.
     if not any(m.get("type") == "case_loaded" for m in hub.history):
         try:
             await ws.send_text(json.dumps(hub.envelope("case_loaded", load_case())))
         except Exception as e:
             print("case_loaded on connect failed: {}".format(e))
 
-    for msg in hub.history:
-        await ws.send_text(json.dumps(msg))
     await ws.send_text(json.dumps(hub.envelope("state_change",
                                                {"state": hub.state})))
     try:

@@ -1,0 +1,42 @@
+# The whole product, locally, with no accounts:
+#
+#   docker compose up --build
+#   open http://localhost:3000
+#
+# To run it against the real Daytona fleet and the model calls instead, put the
+# keys in .env (compose reads it automatically) and set SEARCHLIGHT_OFFLINE=0.
+# Nothing else changes: same images, same code path, one flag.
+
+services:
+  orchestrator:
+    build:
+      context: .
+      target: orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      # Default offline. Every key below is optional and empty unless .env
+      # supplies it -- see .env.example for what each one buys.
+      SEARCHLIGHT_OFFLINE: "${SEARCHLIGHT_OFFLINE:-1}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      DAYTONA_API_KEY: "${DAYTONA_API_KEY:-}"
+      PARALLEL_API_KEY: "${PARALLEL_API_KEY:-}"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        # Inlined at build time by Next, so they belong here and not under
+        # `environment`. ws://localhost:8000 is the BROWSER's view of the
+        # orchestrator, which is the published port on the host, never the
+        # compose service name.
+        NEXT_PUBLIC_DATA_SOURCE: live
+        NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws
+    ports:
+      - "3000:3000"
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    restart: unless-stopped
