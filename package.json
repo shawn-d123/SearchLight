@@ -12,14 +12,14 @@
   },
   "scripts": {
     "dev": "concurrently -n orchestrator,web -c cyan,yellow \"npm:dev:orchestrator\" \"npm:dev:web\"",
-    "dev:orchestrator": "python orchestrator/server.py --offline",
+    "dev:orchestrator": "node scripts/python.mjs orchestrator/server.py --offline",
     "dev:web": "npm run dev:live --workspace web",
     "dev:fixtures": "npm run dev --workspace web",
     "build": "npm run build --workspace web",
     "start": "npm run start --workspace web",
     "typecheck": "npm run typecheck --workspace web",
     "lint": "npm run lint --workspace web",
-    "smoke": "python -m pytest tests -q",
+    "smoke": "node scripts/python.mjs -m pytest",
     "ci": "npm run typecheck && npm run lint && npm run build && npm run smoke"
   },
   "devDependencies": {

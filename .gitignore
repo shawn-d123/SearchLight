@@ -39,8 +39,9 @@ next-env.d.ts
 .DS_Store
 
 # Written and re-added by `next dev` (node_modules/next/dist/server/lib/
-# generate-agent-files.js). Not ours, and it regenerates.
+# generate-agent-files.js). Not ours, and both regenerate on every dev start.
 AGENTS.md
+CLAUDE.md
 
 # Staging dir for Daytona snapshot builds.
 # Regenerate: cp data/*.npy data/meta.json _snapdata/
