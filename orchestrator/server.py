@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from settings import DATA, MOCKS, MAX_SANDBOXES, load_case as settings_load_case
+from settings import DATA, FIXTURES, MAX_SANDBOXES, load_case as settings_load_case
 from pipeline import Pipeline
 
 STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
@@ -27,7 +27,7 @@ STATES = ("landing", "intake", "briefing", "simulating", "field_ready",
 async def lifespan(app):
     hub.loop = asyncio.get_running_loop()
     if CONFIG["use_fleet"]:
-        # Acquire at startup, not on the keypress. See prep/TIMINGS.md: there is
+        # Acquire at startup, not on the keypress. See docs/fleet-benchmark.md: there is
         # no warm-pool API on this tier, so holding the fleet IS the warm pool.
         threading.Thread(target=_boot_fleet, daemon=True).start()
     try:
@@ -207,7 +207,7 @@ async def ws_endpoint(ws: WebSocket):
 #
 # Word groups rather than one word at a time: real recognition arrives in
 # bursts, and the whole pitch is 90 seconds, so the call has to be over in
-# about six of them. Mirrors TRANSCRIPT_* in frontend/lib/config.ts.
+# about six of them. Mirrors TRANSCRIPT_* in web/lib/config.ts.
 TRANSCRIPT_WORDS_PER_TICK = 2
 TRANSCRIPT_TICK_S = 0.15
 
@@ -229,14 +229,14 @@ async def _play_intake(source="fallback"):
     entirely honest; presenting it as a live call is not.
     """
     try:
-        transcript = (MOCKS / "transcript.txt").read_text(encoding="utf-8").strip()
+        transcript = (FIXTURES / "transcript.txt").read_text(encoding="utf-8").strip()
     except Exception:
-        print("intake: mocks/transcript.txt missing; nothing to replay")
+        print("intake: fixtures/transcript.txt missing; nothing to replay")
         return
     words = transcript.split()
     ticks = (len(words) + TRANSCRIPT_WORDS_PER_TICK - 1) // TRANSCRIPT_WORDS_PER_TICK
 
-    # THE EXTRACTION IS REAL. This previously read mocks/extraction.json and
+    # THE EXTRACTION IS REAL. This previously read fixtures/extraction.json and
     # streamed it on a timer, which is a canned card pretending to be a live
     # extraction -- the one thing in this demo a judge can catch by asking to
     # speak into the microphone themselves.

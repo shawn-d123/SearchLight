@@ -51,7 +51,7 @@ class Pipeline:
     def acquire_fleet(self):
         """Call this at startup, not when the operator presses run. Cold start
         is only ~2 s for the whole fleet, but 2 s of still map is 2 s of still
-        map. There is no warm-pool API on this tier -- see prep/TIMINGS.md."""
+        map. There is no warm-pool API on this tier -- see docs/fleet-benchmark.md."""
         self.fleet.ensure_snapshot()
         self.sandboxes, errors = self.fleet.acquire(self.n_sandboxes)
         return self.sandboxes, errors

@@ -1,0 +1,28 @@
+{
+  "name": "searchlight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Terrain-aware probability fields for search and rescue planning",
+  "license": "MIT",
+  "workspaces": [
+    "web"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "concurrently -n orchestrator,web -c cyan,yellow \"npm:dev:orchestrator\" \"npm:dev:web\"",
+    "dev:orchestrator": "python orchestrator/server.py --offline",
+    "dev:web": "npm run dev:live --workspace web",
+    "dev:fixtures": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "start": "npm run start --workspace web",
+    "typecheck": "npm run typecheck --workspace web",
+    "lint": "npm run lint --workspace web",
+    "smoke": "python -m pytest tests -q",
+    "ci": "npm run typecheck && npm run lint && npm run build && npm run smoke"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

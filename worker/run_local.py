@@ -79,7 +79,7 @@ def main():
     # Read the IPP directly rather than importing orchestrator/: worker/ must
     # stay standalone. Accepts both the section 8 intake payload and the older
     # flat mock.
-    case = json.loads((ROOT / "mocks" / "case.json").read_text())
+    case = json.loads((ROOT / "fixtures" / "case.json").read_text())
     start = (case.get("last_known") or {}).get("ipp") or case["ipp"]
     print("IPP {}  duration {}s  {} runs/family".format(
         start, args.duration_s, args.runs))

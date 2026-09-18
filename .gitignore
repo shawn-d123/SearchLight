@@ -1,27 +1,28 @@
-# secrets
+# Secrets. See .env.example for what each key is for.
 .env
 
 # Large regenerable intermediates, rebuilt by:
-#   python prep/fetch_terrain.py all
-# See prep/STATUS.md. NOTE: gitignore has no trailing comments -- a pattern
-# and a comment on the same line makes the comment part of the pattern.
+#   python pipeline/fetch_terrain.py all
+# NOTE: gitignore has no trailing comments -- a pattern and a comment on the
+# same line makes the comment part of the pattern.
 data/trails.graphml
 data/dem.tif
 data/_*.npy
-prep/mapscore/
-prep/.osm_cache/
+pipeline/mapscore/
+pipeline/.osm_cache/
 
-# The four worker arrays ARE committed -- Person B bakes them into the
-# Daytona snapshot: elevation.npy slope.npy trail_dist.npy water_dist.npy
+# The four worker arrays ARE committed. They are baked into the Daytona
+# snapshot and mmapped by the local fleet:
+#   elevation.npy slope.npy trail_dist.npy water_dist.npy
 
 # Frame-rate stress fixture, 12.3 MB in two places. Regenerates in ~10 s:
-#   python prep/make_mocks.py --stress
-mocks/trajectories_12k.json
-frontend/public/mocks/trajectories_12k.json
+#   python pipeline/make_fixtures.py --stress
+fixtures/trajectories_12k.json
+web/public/fixtures/trajectories_12k.json
 
-# NOTE: frontend/public/tiles/ IS committed on purpose -- 189 cached terrain
-# tiles, 21 MB. Regenerating them needs the network, which is exactly the
-# failure we are insuring against. See prep/cache_tiles.py.
+# NOTE: web/public/tiles/ IS committed on purpose -- 1,060 cached terrain
+# tiles. Regenerating them needs the network, which is exactly the failure
+# this insures against. See web/scripts/cache-tiles.mjs.
 
 # python
 __pycache__/
@@ -37,14 +38,13 @@ out/
 next-env.d.ts
 .DS_Store
 
-# Staging dir for Daytona snapshot builds (see prep/TIMINGS.md).
-# Regenerate: cp data/*.npy data/meta.json _snapdata/
-_snapdata/
-prep/TIMINGS.json
-
-# prep/tune_evidence.py's captured run (12 MB). Regenerate, do not commit.
-prep/_batches.json
-
 # Written and re-added by `next dev` (node_modules/next/dist/server/lib/
 # generate-agent-files.js). Not ours, and it regenerates.
 AGENTS.md
+
+# Staging dir for Daytona snapshot builds.
+# Regenerate: cp data/*.npy data/meta.json _snapdata/
+_snapdata/
+
+# pipeline/tune_evidence.py's captured run (12 MB). Regenerate, do not commit.
+pipeline/_batches.json

@@ -33,7 +33,7 @@ Mount Lemmon at 2,791 m over a ~700 m valley floor. Six real historical cases
 from the MapScore ISRID subset sit inside the box.
 
 > The spec originally assumed Yosemite. The free MapScore set contains no
-> Yosemite cases — only Arizona. See `prep/STATUS.md`.
+> Yosemite cases — only Arizona. See `docs/fleet-benchmark.md`.
 
 ## Benchmark
 
@@ -51,13 +51,13 @@ cases, same metric.
 ## Layout
 
 ```
-frontend/       Person A   Next.js, deck.gl, MapLibre
+web/       Person A   Next.js, deck.gl, MapLibre
 worker/         Person B   runs inside a Daytona sandbox
 orchestrator/   Person B   fleet control, WebSocket server
 model/          Person C   aggregation, evidence, scoring
-mocks/          Person C   committed, validated against CONTRACT.md
+fixtures/          Person C   committed, validated against CONTRACT.md
 data/           terrain arrays, trails, cases, priors
-prep/           throwaway scripts used the night before
+pipeline/           throwaway scripts used the night before
 CONTRACT.md     the frozen interface — read this first
 ```
 
@@ -68,26 +68,26 @@ every 20–30 minutes. Nobody edits another person's directory.
 
 ```bash
 python -m venv .venv && .venv/Scripts/activate      # Windows
-pip install -r prep/requirements.txt
+pip install -r pipeline/requirements.txt
 cp .env.example .env                                 # then fill in the keys
 ```
 
 Rebuild everything from scratch:
 
 ```bash
-git clone https://github.com/ctwardy/mapscore prep/mapscore
-python prep/extract_cases.py       # -> data/cases.csv, data/bbox.json
-python prep/make_priors.py         # -> data/priors.json
-python prep/fetch_terrain.py all   # -> trails, water, arrays  (elevation needs a key)
-python prep/make_mocks.py          # -> mocks/ and frontend/public/mocks/
-python prep/validate_mocks.py      # checks all six against CONTRACT.md
-python prep/verify_baseline.py     # reproduces the ring baseline
+git clone https://github.com/ctwardy/mapscore pipeline/mapscore
+python pipeline/extract_cases.py       # -> data/cases.csv, data/bbox.json
+python pipeline/make_priors.py         # -> data/priors.json
+python pipeline/fetch_terrain.py all   # -> trails, water, arrays  (elevation needs a key)
+python pipeline/make_fixtures.py          # -> fixtures/ and web/public/fixtures/
+python pipeline/validate_fixtures.py      # checks all six against CONTRACT.md
+python pipeline/verify_baseline.py     # reproduces the ring baseline
 ```
 
 Terrain tiles for offline use (189 tiles, ~21 MB, already committed):
 
 ```bash
-python prep/cache_tiles.py
+python pipeline/cache_tiles.py
 ```
 
 Frontend:
@@ -99,10 +99,10 @@ cd frontend && npm install && npm run dev
 Frame-rate stress fixture (12,000 runs, gitignored, ~10 s):
 
 ```bash
-python prep/make_mocks.py --stress
+python pipeline/make_fixtures.py --stress
 ```
 
-`DATA_SOURCE` in `frontend/lib/config.ts` switches `'mock'` → `'live'`.
+`DATA_SOURCE` in `web/lib/config.ts` switches `'mock'` → `'live'`.
 
 ## Known weaknesses — state these first
 

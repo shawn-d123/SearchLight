@@ -6,13 +6,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-MOCKS = ROOT / "mocks"
+FIXTURES = ROOT / "fixtures"
 WORKER = ROOT / "worker"
 
 # 1 GiB, not 2. Measured against the live account: the binding limit is TOTAL
 # MEMORY 10 GiB (and total CPU 10), so a 2 GiB worker caps the fleet at 5 while
 # a 1 GiB worker caps it at 10. A worker mmaps 33.7 MB of terrain and holds a
-# few thousand floats; 1 GiB is not close to tight. See prep/TIMINGS.md.
+# few thousand floats; 1 GiB is not close to tight. See docs/fleet-benchmark.md.
 SNAPSHOT = "searchlight-worker-1g"
 SNAPSHOT_CPU = 1
 SNAPSHOT_MEM_GIB = 1
@@ -51,7 +51,7 @@ def normalise_case(raw):
     """Flatten the CONTRACT section 8 extraction payload into what the
     simulation needs.
 
-    `mocks/case.json` is now the intake payload -- nested `subject`,
+    `fixtures/case.json` is now the intake payload -- nested `subject`,
     `last_known` and `assessment` objects -- rather than the old flat mock with
     `ipp` and `last_contact_s_ago` at the top level. Both shapes are accepted so
     a stale mock, or a live extraction, works without a second code path.
@@ -84,7 +84,7 @@ def normalise_case(raw):
 
 def load_case(path=None):
     import json
-    p = path or (MOCKS / "case.json")
+    p = path or (FIXTURES / "case.json")
     return normalise_case(json.loads(open(p, encoding="utf-8").read()))
 
 

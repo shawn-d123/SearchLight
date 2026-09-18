@@ -195,7 +195,7 @@ def fallback_hypotheses(case, n, families=None):
 # is not found 72 minutes from the IPP -- the published quantiles describe the
 # EVENTUAL find distance, and the search must cover where they could be by the
 # time teams arrive. Calibrated so the simulated median matches the published
-# p50; see prep/check_calibration.py.
+# p50; see pipeline/check_calibration.py.
 DURATION_SCALE = 3.2
 MIN_DURATION_S = 900.0
 MAX_DURATION_S = 12 * 3600.0

@@ -203,7 +203,7 @@ def main():
                     help="execute it locally against data/ afterwards")
     args = ap.parse_args()
 
-    from settings import MOCKS, DATA
+    from settings import FIXTURES, DATA
     sys.path.insert(0, str(WORKER))
     import sim as simmod
 

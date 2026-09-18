@@ -22,7 +22,7 @@ import os
 import re
 import time
 
-from settings import DATA, MOCKS
+from settings import DATA, FIXTURES
 
 EXTRACT_MODEL = os.environ.get("SEARCHLIGHT_EXTRACT_MODEL", "gpt-5.4")
 
@@ -129,7 +129,7 @@ def fallback_payload(transcript=None):
     Marked `source: "fallback"` so nothing downstream can mistake it for a live
     extraction. The demo must never present canned output as live.
     """
-    payload = json.loads((MOCKS / "extraction.json").read_text())
+    payload = json.loads((FIXTURES / "extraction.json").read_text())
     if transcript:
         payload["transcript"] = transcript
     payload["source"] = "fallback"
@@ -229,7 +229,7 @@ def main():
     ap.add_argument("--model", default=EXTRACT_MODEL)
     args = ap.parse_args()
 
-    text = args.transcript or (MOCKS / "transcript.txt").read_text(encoding="utf-8")
+    text = args.transcript or (FIXTURES / "transcript.txt").read_text(encoding="utf-8")
     payload, err = extract(text, model=args.model)
     print("source: {}  {}".format(payload.get("source"),
                                   "error: " + err if err else ""))

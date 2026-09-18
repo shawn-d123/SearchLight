@@ -3,7 +3,7 @@
 Fleet control, model calls, aggregation calls, and the WebSocket server. Runs on
 the laptop, so it may use whatever libraries it likes.
 
-**Read `../prep/TIMINGS.md` first.** It has the measured numbers and the three
+**Read `../docs/fleet-benchmark.md` first.** It has the measured numbers and the three
 traps that cost real time.
 
 ## Files
@@ -89,7 +89,7 @@ hand-roll the base64.
 A second implementation of this directory was built at the same time and is in
 git history. This one won on the overlapping files. Removed as superseded:
 `worker/runner.py`, `worker/terrain.py`, `orchestrator/generate.py`,
-`prep/daytona_ctl.py`, `prep/check_calibration.py`. All recoverable:
+`pipeline/daytona_ctl.py`, `pipeline/check_calibration.py`. All recoverable:
 
 ```bash
 git show pre-rebase-upstream:worker/runner.py
@@ -98,5 +98,5 @@ git show pre-rebase-upstream:worker/runner.py
 **One idea from that branch is worth taking back** — sampling hypothesis
 duration from a lognormal calibrated against the published ISRID quantiles,
 rather than using elapsed-time-since-last-contact directly. See the
-`field_area_pct` section of `prep/TIMINGS.md`; it is the difference between a
+`field_area_pct` section of `docs/fleet-benchmark.md`; it is the difference between a
 2.9% headline and a defensible one.

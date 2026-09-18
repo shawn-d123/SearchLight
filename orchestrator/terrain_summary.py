@@ -119,7 +119,7 @@ def summarise(lat, lon, data_dir=None, out_m=2000.0):
 
 if __name__ == "__main__":
     import json
-    from settings import MOCKS
+    from settings import FIXTURES
     case = load_case()
     facts, text = summarise(*case["ipp"])
     print(text)
